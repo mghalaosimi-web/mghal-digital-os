@@ -39,7 +39,7 @@ Never expose any secret in client code or commit it to the repository.
 Run these checks after a deployment or environment change:
 
 1. `GET /api/health` should return HTTP 200.
-2. `GET /api/ready` should return HTTP 200 and report the database as reachable and owner authentication as configured.
+2. `GET /api/ready` should return HTTP 200 and report the database as reachable, owner authentication as configured, and login rate limiting as configured.
 3. Open the application and authenticate with the exact current `OWNER_API_TOKEN`.
 4. Create a workspace, project, task, knowledge item, and content draft.
 5. Edit and delete test records; verify that activity appears in the workspace dashboard.
