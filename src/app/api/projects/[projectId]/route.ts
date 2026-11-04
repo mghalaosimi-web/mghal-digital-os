@@ -15,57 +15,43 @@ type Context = { params: Promise<{ projectId: string }> };
 export async function PATCH(request: Request, context: Context) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-
   const { projectId } = await context.params;
-  const parsed = updateSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid project data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
 
-  const existing = await prisma.project.findUnique({ where: { id: projectId } });
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 }); }
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid project data", details: parsed.error.flatten() }, { status: 400 });
+
+  const existing = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true, workspaceId: true } });
   if (!existing) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-
   const { dueDate, ...fields } = parsed.data;
-  const project = await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      ...fields,
-      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-    },
-  });
 
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId: project.workspaceId,
-      action: "project.updated",
-      resource: "Project",
-      resourceId: project.id,
-    },
+  const project = await prisma.$transaction(async (tx) => {
+    const updated = await tx.project.update({
+      where: { id: projectId },
+      data: { ...fields, ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}) },
+    });
+    await tx.auditEvent.create({
+      data: { workspaceId: updated.workspaceId, action: "project.updated", resource: "Project", resourceId: updated.id },
+    });
+    return updated;
   });
-
   return NextResponse.json({ data: project });
 }
 
 export async function DELETE(request: Request, context: Context) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-
   const { projectId } = await context.params;
-  const existing = await prisma.project.findUnique({ where: { id: projectId } });
+  const existing = await prisma.project.findUnique({ where: { id: projectId }, select: { id: true, workspaceId: true } });
   if (!existing) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  await prisma.project.delete({ where: { id: projectId } });
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId: existing.workspaceId,
-      action: "project.deleted",
-      resource: "Project",
-      resourceId: existing.id,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.project.delete({ where: { id: projectId } });
+    await tx.auditEvent.create({
+      data: { workspaceId: existing.workspaceId, action: "project.deleted", resource: "Project", resourceId: existing.id },
+    });
   });
-
   return NextResponse.json({ success: true });
 }
