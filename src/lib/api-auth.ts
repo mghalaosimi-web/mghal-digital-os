@@ -1,11 +1,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
+const MIN_TOKEN_LENGTH = 32;
+
 export function requireOwnerApi(request: Request): NextResponse | null {
   const configured = process.env.OWNER_API_TOKEN;
-  if (!configured) {
+  if (!configured || configured.length < MIN_TOKEN_LENGTH) {
     return NextResponse.json(
-      { error: "API is not configured. Set OWNER_API_TOKEN on the server." },
+      { error: "API is not configured securely. Set a random OWNER_API_TOKEN with at least 32 characters." },
       { status: 503 },
     );
   }
@@ -15,14 +17,20 @@ export function requireOwnerApi(request: Request): NextResponse | null {
     ? authorization.slice(7)
     : "";
 
-  const expectedBuffer = Buffer.from(configured);
-  const suppliedBuffer = Buffer.from(supplied);
+  const expectedBuffer = Buffer.from(configured, "utf8");
+  const suppliedBuffer = Buffer.from(supplied, "utf8");
   const valid =
     expectedBuffer.length === suppliedBuffer.length &&
     timingSafeEqual(expectedBuffer, suppliedBuffer);
 
   if (!valid) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      {
+        status: 401,
+        headers: { "WWW-Authenticate": "Bearer" },
+      },
+    );
   }
 
   return null;
