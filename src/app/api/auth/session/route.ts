@@ -10,7 +10,7 @@ import {
 } from "@/lib/owner-session";
 
 const loginSchema = z.object({
-  token: z.string().min(32).max(512),
+  token: z.string().trim().min(32).max(512),
 });
 
 function isSameOrigin(request: Request): boolean {
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
   }
 
-  const configured = process.env.OWNER_API_TOKEN;
+  const configured = process.env.OWNER_API_TOKEN?.trim();
   if (!configured || configured.length < 32) {
     return NextResponse.json({ error: "Owner authentication is not configured" }, { status: 503 });
   }
