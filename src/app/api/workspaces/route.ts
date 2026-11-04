@@ -17,7 +17,10 @@ export async function GET(request: Request) {
     select: { id: true, name: true, slug: true, createdAt: true },
   });
 
-  return NextResponse.json({ data: workspaces });
+  return NextResponse.json(
+    { data: workspaces },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 export async function POST(request: Request) {
@@ -53,7 +56,10 @@ export async function POST(request: Request) {
       return created;
     });
 
-    return NextResponse.json({ data: workspace }, { status: 201 });
+    return NextResponse.json({ data: workspace }, {
+      status: 201,
+      headers: { "Cache-Control": "no-store" },
+    });
   } catch (error) {
     if (
       typeof error === "object" &&
