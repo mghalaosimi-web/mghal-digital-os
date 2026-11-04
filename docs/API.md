@@ -26,13 +26,18 @@
 - `GET /api/tasks?projectId=<id>`
 - `POST /api/tasks`
 - `PATCH /api/tasks/:taskId`
+- `DELETE /api/tasks/:taskId`
 
 ## المعرفة
 - `GET /api/knowledge?workspaceId=<id>&q=<search>`
 - `POST /api/knowledge`
+- `PATCH /api/knowledge/:itemId`
+- `DELETE /api/knowledge/:itemId`
 
 ## المحتوى
 - `GET /api/content?workspaceId=<id>`
 - `POST /api/content`
+- `PATCH /api/content/:itemId`
+- `DELETE /api/content/:itemId`
 
-تتحقق المدخلات المدعومة عبر Zod، وتُسجل العمليات المنفذة في AuditEvent ضمن معاملات ذرية حيث طُبّق ذلك. لا تزال عمليات تعديل/حذف المهام والمعرفة والمحتوى، والمصادقة متعددة المستخدمين وفحوص Membership، والحد من معدل الطلبات المستدام، ضمن الأعمال المتبقية. لا تفتح API لمستخدمين متعددين قبل تنفيذ عزل الصلاحيات على الخادم.
+تتحقق المدخلات المدعومة عبر Zod، وتُسجل العمليات المنفذة في AuditEvent ضمن معاملات ذرية حيث طُبّق ذلك. لا تزال واجهات CRUD المرئية، والمصادقة متعددة المستخدمين وفحوص Membership، والحد من معدل الطلبات المستدام، ضمن الأعمال المتبقية. لا تفتح API لمستخدمين متعددين قبل تنفيذ عزل الصلاحيات على الخادم.
