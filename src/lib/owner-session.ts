@@ -2,10 +2,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const OWNER_SESSION_COOKIE = "mghal_owner_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+const MIN_TOKEN_LENGTH = 32;
 
 function getSecret(): string | null {
-  const secret = process.env.OWNER_API_TOKEN;
-  return secret && secret.length >= 32 ? secret : null;
+  const secret = process.env.OWNER_API_TOKEN?.trim();
+  return secret && secret.length >= MIN_TOKEN_LENGTH ? secret : null;
 }
 
 export function createOwnerSession(): string | null {
@@ -64,7 +65,7 @@ export function readOwnerSessionCookie(request: Request): string | undefined {
   for (const part of cookieHeader.split(";")) {
     const separator = part.indexOf("=");
     if (separator < 0) continue;
-    if (part.slice(0, separator).trim() === "mghal_owner_session") {
+    if (part.slice(0, separator).trim() === OWNER_SESSION_COOKIE) {
       return part.slice(separator + 1).trim();
     }
   }
