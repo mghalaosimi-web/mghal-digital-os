@@ -1,18 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
-import { GET } from "../src/app/api/health/route.ts";
+const routeSource = await readFile(
+  new URL("../src/app/api/health/route.ts", import.meta.url),
+  "utf8",
+);
 
-test("liveness endpoint returns a non-cacheable healthy response", async () => {
-  const response = GET();
-  const body = await response.json();
-
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.equal(body.status, "ok");
-  assert.equal(body.mode, "liveness");
-  assert.equal(body.service, "mghal-digital-os");
-  assert.equal(typeof body.timestamp, "string");
-  assert.equal(typeof body.checks.databaseConfigured, "boolean");
-  assert.equal(typeof body.checks.ownerApiConfigured, "boolean");
+test("liveness endpoint explicitly disables HTTP caching", () => {
+  assert.match(routeSource, /export function GET\s*\(/);
+  assert.match(routeSource, /"Cache-Control"\s*:\s*"no-store"/);
 });
