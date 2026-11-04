@@ -18,6 +18,13 @@ const schema = z.object({
       message: "يجب تحديد موعد عند جدولة المحتوى.",
     });
   }
+  if (value.status !== "SCHEDULED" && value.scheduledAt) {
+    context.addIssue({
+      code: "custom",
+      path: ["scheduledAt"],
+      message: "لا يمكن تعيين موعد إلا للمحتوى المجدول.",
+    });
+  }
 });
 
 export async function GET(request: Request) {
