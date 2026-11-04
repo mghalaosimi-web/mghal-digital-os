@@ -53,6 +53,7 @@ export function WorkspaceModules() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const activeProjects = useMemo(() => projects.filter((p) => !["ARCHIVED", "COMPLETED"].includes(p.status)), [projects]);
 
@@ -160,6 +161,34 @@ export function WorkspaceModules() {
     } finally { setGenerating(false); }
   }
 
+  async function exportWorkspace() {
+    if (!workspaceId || exporting) return;
+    setExporting(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/export?workspaceId=" + encodeURIComponent(workspaceId), { cache: "no-store" });
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error ?? "تعذر تصدير مساحة العمل");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? "mghal-workspace-export.json";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setNotice("تم تجهيز نسخة JSON من بيانات مساحة العمل.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر تصدير مساحة العمل");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function saveItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!workspaceId) return;
@@ -215,6 +244,7 @@ export function WorkspaceModules() {
       <div className="workbench-heading">
         <div><div className="eyebrow muted">WORKSPACE CONTROL CENTER</div><h2>إدارة أعمالك</h2><p>أنشئ وعدّل وتابع بياناتك مباشرة من قاعدة البيانات.</p></div>
         {workspaces.length > 0 ? <label className="workspace-select-label"><span>مساحة العمل</span><select value={workspaceId} onChange={(e) => { setWorkspaceId(e.target.value); resetForm(); }}><option value="">اختر مساحة</option>{workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select></label> : null}
+        {workspaces.length > 0 ? <button className="secondary-action" type="button" onClick={() => void exportWorkspace()} disabled={!workspaceId || exporting}>{exporting ? "جارٍ تجهيز النسخة..." : "↓ تصدير بيانات المساحة"}</button> : null}
       </div>
       <div className="module-tabs" role="tablist" aria-label="وحدات الإدارة">
         {tabs.map((item) => <button type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? "module-tab active" : "module-tab"} key={item.id} onClick={() => { setTab(item.id); resetForm(); setError(""); }}>{item.label}<small>{item.description}</small></button>)}
