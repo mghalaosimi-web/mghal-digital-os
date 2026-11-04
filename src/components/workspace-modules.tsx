@@ -38,6 +38,7 @@ export function WorkspaceModules() {
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
   const [content, setContent] = useState<Content[]>([]);
   const [projectFilter, setProjectFilter] = useState("");
+  const [knowledgeQuery, setKnowledgeQuery] = useState("");
   const [editingId, setEditingId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -113,6 +114,18 @@ export function WorkspaceModules() {
     return () => window.removeEventListener("mghal:workspace-changed", refresh);
   }, []);
   useEffect(() => { if (workspaceId) void loadData(); }, [workspaceId]);
+  useEffect(() => {
+    if (tab !== "knowledge" || !workspaceId) return;
+    let active = true;
+    const query = knowledgeQuery.trim();
+    const url = "/api/knowledge?workspaceId=" + encodeURIComponent(workspaceId)
+      + (query ? "&q=" + encodeURIComponent(query) : "");
+    request<{ data: Knowledge[] }>(url)
+      .then((result) => { if (active) setKnowledge(result.data); })
+      .catch((e) => { if (active) setError(e instanceof Error ? e.message : "تعذر البحث في قاعدة المعرفة"); });
+    return () => { active = false; };
+  }, [tab, workspaceId, knowledgeQuery]);
+
   useEffect(() => {
     if (tab !== "tasks" || !projectFilter) { setTasks([]); return; }
     let active = true;
@@ -268,6 +281,7 @@ export function WorkspaceModules() {
         </form>
         <div className="module-records">
           <div className="records-heading"><strong>{tabs.find((x) => x.id === tab)?.label}</strong><span>{selectedItems.length} عنصر</span></div>
+          {tab === "knowledge" ? <label className="records-filter">البحث في المعرفة<input type="search" value={knowledgeQuery} onChange={(e) => setKnowledgeQuery(e.target.value)} maxLength={200} placeholder="ابحث في العناوين والمحتوى..." /></label> : null}
           {tab === "tasks" && projects.length > 0 ? <label className="records-filter">تصفية حسب المشروع<select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
           {loading ? <div className="workspace-state">جارٍ تحميل البيانات...</div> : selectedItems.length === 0 ? <div className="workspace-empty">لا توجد عناصر هنا بعد. استخدم النموذج لإضافة أول عنصر.</div> : <div className="record-list">
             {selectedItems.map((raw) => {
