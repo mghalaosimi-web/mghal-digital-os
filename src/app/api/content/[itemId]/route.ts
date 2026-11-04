@@ -41,7 +41,7 @@ export async function PATCH(request: Request, context: Context) {
         ...fields,
         ...(status ? {
           status,
-          ...(status === "PUBLISHED" ? { publishedAt: new Date() } : {}),
+          publishedAt: status === "PUBLISHED" ? new Date() : null,
         } : {}),
         ...(scheduledAt !== undefined ? { scheduledAt: scheduledAt ? new Date(scheduledAt) : null } : {}),
       },
