@@ -1,58 +1,39 @@
-# نموذج البيانات الأولي
+# نموذج البيانات
 
-هذا نموذج نطاق مفاهيمي، وليس schema منفذاً أو migration.
+تصف هذه الوثيقة ما هو موجود في Prisma schema وما يزال تصوراً مستقبلياً. المرجع التنفيذي الحالي هو `prisma/schema.prisma`.
 
-## قواعد عامة
+## الكيانات المنفذة في Prisma
 
-- كل سجل مملوك لمساحة عمل عبر workspace_id عند دعم أكثر من مساحة.
-- استخدم UUID/ULID كمعرفات عامة.
-- created_at وupdated_at بتوقيت UTC.
-- لا تخزن الأسرار في جداول إعدادات عادية.
-- استخدم soft delete فقط عندما توجد حاجة استرجاع/تدقيق واضحة، مع سياسة احتفاظ.
-- أضف فهارس للمفاتيح الأجنبية وحقول البحث والتصفية.
+- **User:** بريد إلكتروني فريد واسم اختياري.
+- **Workspace:** مساحة عمل ذات اسم وslug فريد.
+- **Membership:** ربط مستخدم بمساحة عمل مع role نصي؛ لم تُنفذ بعد سياسات التحقق من العضوية في API.
+- **Project:** مشروع تابع لمساحة عمل مع وصف وحالة وتواريخ.
+- **Task:** مهمة تابعة لمشروع مع حالة وأولوية وموعد واكتمال.
+- **KnowledgeItem:** عنصر معرفة تابع لمساحة عمل مع محتوى ونوع ورابط مصدر ووسوم.
+- **ContentItem:** عنصر محتوى تابع لمساحة عمل مع نص وقناة وحالة ومواعيد.
+- **AuditEvent:** سجل نشاط تابع لمساحة عمل مع actor/action/resource/metadata.
 
-## الكيانات الأساسية
+تستخدم النماذج معرفات CUID وتواريخ الإنشاء والتحديث، وتوجد فهارس أساسية لمسارات التصفية والعلاقات. المخطط يستهدف PostgreSQL؛ لم يُثبت بعد تطبيقه على قاعدة بيانات تشغيلية.
 
-### Workspace & Membership
-Workspace(id, name, slug, created_at)
-Membership(id, workspace_id, user_id, role, status)
+## كيانات مستقبلية غير منفذة
 
-### Identity
-Profile(id, workspace_id, display_name, bio, locale, timezone)
-BrandVoice(id, workspace_id, name, guidelines, examples)
-Asset(id, workspace_id, storage_key, mime_type, size, checksum, metadata)
+قد تضاف لاحقاً بحسب الحاجة الفعلية:
 
-### Content
-ContentItem(id, workspace_id, title, body, content_type, status, created_by)
-ContentVariant(id, content_item_id, channel, body, status, scheduled_at, published_at)
-ContentApproval(id, content_variant_id, reviewer_id, decision, note, decided_at)
-ChannelConnection(id, workspace_id, provider, external_account_id, status, secret_reference)
+- Profile وBrandVoice وAsset.
+- ContentVariant وContentApproval وChannelConnection.
+- TaskDependency وActivity متقدم.
+- KnowledgeSource وKnowledgeChunk وembeddings.
+- Automation وAutomationRun وAutomationStepRun.
+- AIInvocation وإدارة مراجع النماذج.
 
-### Projects
-Project(id, workspace_id, name, description, status, start_at, due_at)
-Task(id, project_id, title, description, status, priority, assignee_id, due_at)
-TaskDependency(task_id, depends_on_task_id)
-Activity(id, workspace_id, actor_id, entity_type, entity_id, action, payload)
+لا تتعامل مع هذه الكيانات على أنها موجودة في قاعدة البيانات حالياً.
 
-### Knowledge
-KnowledgeSource(id, workspace_id, source_type, title, uri, checksum, metadata)
-KnowledgeChunk(id, source_id, chunk_index, content, embedding_reference)
-Tag(id, workspace_id, name)
-TagAssignment(tag_id, entity_type, entity_id)
+## قواعد تصميم
 
-### Automation
-Automation(id, workspace_id, name, trigger_type, definition, enabled)
-AutomationRun(id, automation_id, status, started_at, finished_at, idempotency_key, error_summary)
-AutomationStepRun(id, run_id, step_key, status, input_summary, output_summary, started_at, finished_at)
-
-### AI & Audit
-AIInvocation(id, workspace_id, purpose, provider, model, status, token_usage, source_refs)
-AuditEvent(id, workspace_id, actor_id, action, resource_type, resource_id, created_at, metadata)
-
-## قيود مهمة
-
-- unique(workspace_id, slug) للمساحات/المعرفات المناسبة.
-- unique(automation_id, idempotency_key) لمنع تنفيذ مكرر.
-- لا تسجل access tokens أو prompts التي تحتوي بيانات سرية في audit.
-- يجب فرض ملكية workspace في طبقة الاستعلام وليس في الواجهة فقط.
-- حذف اتصال قناة يجب أن يلغي/يدوّر السر في secret manager.
+- كل استعلام إداري يجب أن يقيّد البيانات بمساحة عمل مصرح بها من سياق المصادقة، لا بمعرف يرسله العميل وحده.
+- فرض ملكية workspace في طبقة الخدمة/الاستعلام وليس في الواجهة فقط.
+- لا تخزن الأسرار أو access tokens في جداول المجال؛ استخدم secret manager ومراجع غير حساسة.
+- سجل التدقيق لا يحتوي كلمات مرور أو رموز وصول أو محتوى سرياً.
+- استخدم معاملات ذرية عند حفظ تغيير المجال وسجل التدقيق.
+- أضف فهارس بناءً على استعلامات حقيقية، وراجع خطط التنفيذ عند نمو البيانات.
+- ضع سياسة احتفاظ وتصدير وحذف ونسخ احتياطي قبل الإطلاق.
