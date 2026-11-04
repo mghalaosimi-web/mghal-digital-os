@@ -131,6 +131,7 @@ export function WorkspaceDashboard() {
       setWorkspaces((current) => [...current, created]);
       setWorkspaceId(created.id);
       setOverview(null);
+      window.dispatchEvent(new Event("mghal:workspace-changed"));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "تعذر إنشاء مساحة العمل");
     } finally {
