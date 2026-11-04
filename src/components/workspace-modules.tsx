@@ -88,6 +88,8 @@ export function WorkspaceModules() {
       setProjects(p.data);
       setKnowledge(k.data);
       setContent(c.data);
+      const taskResult = projectFilter ? await request<{ data: Task[] }>("/api/tasks?projectId=" + encodeURIComponent(projectFilter)) : { data: [] as Task[] };
+      setTasks(taskResult.data);
       if (p.data.length && !p.data.some((item) => item.id === projectFilter)) setProjectFilter(p.data[0].id);
       setTasks([]);
     } catch (e) {
