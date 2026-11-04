@@ -1,25 +1,18 @@
 # Production Operations Runbook
 
-This runbook describes the current single-owner deployment. It does not imply that social publishing, background workers, or multi-user authorization are implemented.
+This runbook describes the currently deployed single-owner application. It does not imply that multi-user authorization, social publishing, file storage, or background workers are complete.
 
 ## 1. Owner login
 
 The login field accepts the exact value configured as `OWNER_API_TOKEN` on the Render web service.
 
-- The value must contain 32–512 characters.
-- A 23-character value is invalid; the UI correctly asks for 9 more characters.
-- Appending arbitrary characters to an old key will not work. The submitted value must exactly match the server value.
+- Accepted length: 32–512 characters.
+- The browser trims accidental whitespace around the pasted value; the secret itself must still match the server value exactly.
+- A longer key is valid if it matches the configured value. Length alone does not prove that it is the correct key.
 - Never put the key in source control, a browser-visible `NEXT_PUBLIC_*` variable, screenshots, logs, or chat messages.
+- Do not rotate a working key unless there is a security reason or the owner explicitly requests rotation.
 
-If the current key is unavailable, generate a new one on a trusted local machine:
-
-```bash
-openssl rand -base64 48
-```
-
-Then open the Render service's Environment page, replace `OWNER_API_TOKEN` with the newly generated value, save, and wait for the deployment/restart to finish. Keep the generated value in a password manager. Enter that exact value in the login screen.
-
-Do not rotate the key while relying on an existing login session: after rotation, sign in again with the new value. A rotation invalidates the ability to create new sessions with the old key.
+If login returns 401, the submitted value differs from the server value. Check that the clipboard contains the intended key and paste that exact value. Do not append characters or pad an existing key.
 
 ## 2. Required and optional environment
 
@@ -29,17 +22,16 @@ Do not rotate the key while relying on an existing login session: after rotation
 | `OWNER_API_TOKEN` | Required | Single-owner login secret, 32–512 characters |
 | `UPSTASH_REDIS_REST_URL` | Required in production | Login rate-limit Redis endpoint |
 | `UPSTASH_REDIS_REST_TOKEN` | Required in production | Redis REST credential |
-| `OPENAI_API_KEY` | Optional | Server-side AI draft generation |
-| `OPENAI_MODEL` | Optional | Model identifier used by draft generation |
+| `AI_API_KEY` or `OPENAI_API_KEY` | Optional | Server-side AI draft generation |
+| `AI_MODEL` or `OPENAI_MODEL` | Optional | Model identifier |
+| `AI_BASE_URL` | Optional | OpenAI-compatible API base URL |
 
-Never expose any secret in client code or commit it to the repository.
+Never expose secrets in client code or commit them to the repository.
 
 ## 3. Post-deploy checks
 
-Run these checks after a deployment or environment change:
-
-1. `GET /api/health` should return HTTP 200.
-2. `GET /api/ready` should return HTTP 200 and report the database and Redis login rate limiter as reachable, with owner authentication configured. Readiness now performs a live Redis PING; configured-but-unreachable Redis returns HTTP 503.
+1. `GET /api/health` should return HTTP 200 for process liveness.
+2. `GET /api/ready` should return HTTP 200 only when the owner token is configured and PostgreSQL and Redis are reachable.
 3. Open the application and authenticate with the exact current `OWNER_API_TOKEN`.
 4. Create a workspace, project, task, knowledge item, and content draft.
 5. Edit and delete test records; verify that activity appears in the workspace dashboard.
@@ -50,17 +42,19 @@ A successful deployment alone is not proof that all integrations work. Check run
 ## 4. Known product boundaries
 
 - Authentication is currently a single-owner token gate, not multi-user identity or role-based access control.
-- AI generation only creates a draft. It does not publish content.
+- UserSession and WorkspaceInvitation tables exist, but registration, session management, and invitation workflows are not implemented.
+- AI generation creates a draft only. It does not publish content.
 - Editorial scheduling stores dates and displays them in the calendar; it is not yet a background publishing worker.
 - Social publishing requires provider OAuth applications, approved scopes, and secure credentials.
-- Backups, restore drills, end-to-end tests, monitoring, and a durable worker/retry system remain launch requirements.
-- The Render service currently uses the Free plan and may sleep when idle.
+- Durable file storage, backups, restore drills, end-to-end tests, monitoring, and a worker/retry system remain launch requirements.
+- The Render service uses the Free plan and may sleep when idle.
 
 ## 5. Incident handling
 
-- **Login says the key is too short:** use a key of at least 32 characters; do not pad the old value.
+- **Login says the key is too short:** use a key of at least 32 characters; do not pad an old value.
 - **Login returns 401:** the submitted key does not exactly match the configured server key.
-- **Login returns 503:** verify the owner token configuration and Redis rate-limit service availability.
-- **Readiness returns 503:** verify the Neon connection string and database reachability.
-- **AI generation returns 503:** configure the optional OpenAI environment variables.
-- **AI generation returns 429:** inspect provider quota/billing; do not retry in a tight loop.
+- **Login returns 403:** inspect request origin and forwarded-host handling; do not disable origin validation as a workaround.
+- **Login returns 503:** verify owner-token configuration and Redis rate-limit availability.
+- **Readiness returns 503:** verify the Neon connection and Redis reachability.
+- **AI generation returns 503:** configure the optional AI provider variables.
+- **AI generation returns 429:** inspect provider quota; do not retry in a tight loop.
