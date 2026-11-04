@@ -1,3 +1,4 @@
+import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -7,10 +8,9 @@ export async function GET() {
   const databaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
   const ownerToken = process.env.OWNER_API_TOKEN?.trim();
   const ownerApiConfigured = Boolean(ownerToken && ownerToken.length >= 32);
-  const redisConfigured = Boolean(
-    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
-    process.env.UPSTASH_REDIS_REST_TOKEN?.trim()
-  );
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  const redisConfigured = Boolean(redisUrl && redisToken);
 
   if (!databaseConfigured || !ownerApiConfigured || !redisConfigured) {
     return NextResponse.json(
@@ -22,32 +22,42 @@ export async function GET() {
           loginRateLimit: redisConfigured ? "configured" : "not_configured",
         },
       },
-      { status: 503 },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 
+  let databaseStatus: "reachable" | "unreachable" = "unreachable";
+  let redisStatus: "reachable" | "unreachable" = "unreachable";
+
   try {
     await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({
-      status: "ready",
+    databaseStatus = "reachable";
+  } catch {
+    // Keep readiness output free of connection strings and provider details.
+  }
+
+  try {
+    const redis = new Redis({ url: redisUrl!, token: redisToken! });
+    const pong = await redis.ping();
+    redisStatus = pong === "PONG" ? "reachable" : "unreachable";
+  } catch {
+    // A configured but unreachable limiter must not be reported as ready.
+  }
+
+  const ready = databaseStatus === "reachable" && redisStatus === "reachable";
+  return NextResponse.json(
+    {
+      status: ready ? "ready" : "not_ready",
       checks: {
-        database: "reachable",
+        database: databaseStatus,
         ownerApi: "configured",
-        loginRateLimit: "configured",
+        loginRateLimit: redisStatus,
       },
       timestamp: new Date().toISOString(),
-    });
-  } catch {
-    return NextResponse.json(
-      {
-        status: "not_ready",
-        checks: {
-          database: "unreachable",
-          ownerApi: "configured",
-          loginRateLimit: "configured",
-        },
-      },
-      { status: 503 },
-    );
-  }
+    },
+    {
+      status: ready ? 200 : 503,
+      headers: { "Cache-Control": "no-store" },
+    },
+  );
 }
