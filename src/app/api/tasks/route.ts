@@ -4,26 +4,27 @@ import { requireOwnerApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 const createSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().trim().min(1).max(128),
   title: z.string().trim().min(2).max(180),
   description: z.string().max(5000).optional(),
   status: z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED"]).default("TODO"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
   dueDate: z.string().datetime().optional(),
-});
+}).strict();
+
+const querySchema = z.object({ projectId: z.string().trim().min(1).max(128) });
 
 export async function GET(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-  const { searchParams } = new URL(request.url);
-  const projectId = searchParams.get("projectId");
-  if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
+  const parsed = querySchema.safeParse({ projectId: new URL(request.url).searchParams.get("projectId") });
+  if (!parsed.success) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
   const tasks = await prisma.task.findMany({
-    where: { projectId },
+    where: { projectId: parsed.data.projectId },
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
     take: 200,
   });
-  return NextResponse.json({ data: tasks });
+  return NextResponse.json({ data: tasks }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
