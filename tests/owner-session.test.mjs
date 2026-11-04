@@ -1,4 +1,5 @@
 import test from "node:test";
+import { createHmac } from "node:crypto";
 import assert from "node:assert/strict";
 
 import {
@@ -11,12 +12,20 @@ import {
 
 const originalToken = process.env.OWNER_API_TOKEN;
 
-test("owner sessions are signed, valid, and expire after the configured TTL", () => {
+test("owner sessions are signed and valid for the configured TTL", () => {
   process.env.OWNER_API_TOKEN = "unit-test-owner-token-with-at-least-32-characters";
   const session = createOwnerSession();
   assert.equal(typeof session, "string");
   assert.equal(verifyOwnerSession(session), true);
   assert.equal(OWNER_SESSION_TTL, 60 * 60 * 24 * 7);
+});
+
+test("owner sessions reject expired payloads", () => {
+  const secret = "unit-test-owner-token-with-at-least-32-characters";
+  process.env.OWNER_API_TOKEN = secret;
+  const payload = Buffer.from(JSON.stringify({ sub: "owner", exp: Math.floor(Date.now() / 1000) - 60 })).toString("base64url");
+  const signature = createHmac("sha256", secret).update(payload).digest("base64url");
+  assert.equal(verifyOwnerSession(payload + "." + signature), false);
 });
 
 test("owner sessions reject missing, malformed, and tampered values", () => {
