@@ -53,3 +53,30 @@
 @media(max-width:900px){.workspace-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.workspace-dashboard{padding:17px;margin-top:22px}.workspace-dashboard-heading{align-items:stretch;flex-direction:column}.workspace-select-label{min-width:0}.workspace-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.workspace-activity li{flex-wrap:wrap}.workspace-activity time{width:100%;margin-right:16px}.workspace-create{grid-template-columns:1fr}.workspace-create-copy,.workspace-create button{grid-column:auto}}
 
+
+
+.modules-workbench{margin-top:34px;padding:25px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,rgba(17,29,44,.96),rgba(12,21,34,.96))}
+.workbench-heading,.editor-heading,.records-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.workbench-heading h2{font-size:23px;margin:8px 0 4px}.workbench-heading p{font-size:12px;color:var(--muted);margin:0}
+.module-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:22px 0}
+.module-tab{border:1px solid var(--line);border-radius:10px;padding:12px;text-align:right;background:#0b1421;color:#c7d2e0;font:inherit;font-size:13px;cursor:pointer}
+.module-tab small{display:block;color:var(--muted);font-size:10px;margin-top:5px}
+.module-tab.active{border-color:rgba(131,224,192,.5);background:rgba(131,224,192,.09);color:var(--accent)}
+.workbench-grid{display:grid;grid-template-columns:minmax(260px,.78fr) minmax(0,1.4fr);gap:16px;align-items:start}
+.module-editor,.module-records{min-width:0;border:1px solid var(--line);border-radius:12px;padding:17px;background:rgba(7,14,24,.45)}
+.module-editor{display:grid;gap:13px}.editor-heading{font-size:13px;margin-bottom:3px}
+.module-editor label,.records-filter{display:grid;gap:6px;font-size:11px;color:#aebbd0}
+.module-editor input,.module-editor textarea,.module-editor select,.records-filter select,.workbench-heading select{width:100%;min-width:0;padding:10px 11px;border:1px solid rgba(157,180,211,.2);border-radius:8px;background:#09111d;color:var(--text);font:inherit;font-size:12px;outline:none}
+.module-editor textarea{resize:vertical;line-height:1.8}.module-editor input:focus,.module-editor textarea:focus,.module-editor select:focus{border-color:var(--accent)}
+.module-editor .auth-submit{font-size:12px;cursor:pointer}.module-editor .auth-submit:disabled{opacity:.5;cursor:not-allowed}
+.text-button{border:0;background:transparent;color:var(--accent);font:inherit;font-size:11px;cursor:pointer}
+.records-heading{margin-bottom:13px}.records-heading strong{font-size:14px}.records-heading span{font-size:10px;color:var(--muted)}
+.records-filter{margin-bottom:12px}
+.record-list{display:grid;gap:9px;max-height:680px;overflow:auto}
+.record-card{display:flex;justify-content:space-between;gap:12px;padding:13px;border:1px solid var(--line);border-radius:10px;background:rgba(18,30,46,.65)}
+.record-main{min-width:0;display:grid;gap:6px}.record-main>strong{font-size:12px;overflow-wrap:anywhere}.record-status{width:max-content;padding:3px 8px;border-radius:20px;background:rgba(131,224,192,.09);color:var(--accent);font-size:9px}
+.record-main p{font-size:11px;color:#95a4b8;line-height:1.8;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}.record-main small{font-size:9px;color:#6f8199}
+.record-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}.record-actions button{border:1px solid var(--line);border-radius:7px;padding:6px 10px;background:transparent;color:#b9c6d7;font:inherit;font-size:10px;cursor:pointer}.record-actions .delete-button{color:#f1a3a3;border-color:rgba(241,130,130,.2)}.record-actions button:disabled{opacity:.4}
+.workspace-alert,.workspace-notice{padding:10px 12px;border-radius:8px;margin:10px 0;font-size:11px}.workspace-alert{background:rgba(220,90,90,.1);color:#ffaaaa}.workspace-notice{background:rgba(131,224,192,.09);color:var(--accent)}
+@media(max-width:900px){.workbench-grid{grid-template-columns:1fr}.module-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.modules-workbench{padding:15px}.workbench-heading{align-items:flex-start;flex-direction:column}.module-tabs{gap:7px}.module-tab{padding:10px;font-size:12px}.record-card{flex-direction:column}.record-actions{flex-direction:row}.module-editor,.module-records{padding:13px}}
