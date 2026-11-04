@@ -29,15 +29,14 @@ export function verifyOwnerSession(value: string | undefined): boolean {
   if (!secret || !value) return false;
 
   const [payload, signature, extra] = value.split(".");
-  if (!payload || !signature || extra !== undefined) return false;
+  // SHA-256 base64url signatures are exactly 43 URL-safe characters.
+  // Reject non-canonical encodings before decoding; Buffer.from is permissive
+  // and may otherwise ignore invalid characters.
+  if (!payload || !signature || extra !== undefined || !/^[A-Za-z0-9_-]{43}$/.test(signature)) return false;
 
   const expected = createHmac("sha256", secret).update(payload).digest();
-  let supplied: Buffer;
-  try {
-    supplied = Buffer.from(signature, "base64url");
-  } catch {
-    return false;
-  }
+  const supplied = Buffer.from(signature, "base64url");
+  if (supplied.toString("base64url") !== signature) return false;
   if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
     return false;
   }
