@@ -1,39 +1,5 @@
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Install dependencies
-        run: npm install
-      - name: Dependency security audit
-        run: npm audit --audit-level=high
-      - name: Validate Prisma schema
-        run: npx prisma validate
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
-      - name: Generate Prisma client
-        run: npm run db:generate
-      - name: Type check
-        run: npm run typecheck
-      - name: Production build
-        run: npm run build
+{
+  "exit_code": 0,
+  "output": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.workflow }}-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n      - name: Setup Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 22\n      - name: Install dependencies\n        run: npm ci\n      - name: Dependency security audit\n        run: npm audit --audit-level=high\n      - name: Validate Prisma schema\n        run: npx prisma validate\n        env:\n          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public\n      - name: Generate Prisma client\n        run: npm run db:generate\n      - name: Type check\n        run: npm run typecheck\n      - name: Production build\n        run: npm run build\n",
+  "cpu_ns": 11632000
+}
