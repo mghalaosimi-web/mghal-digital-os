@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { EditorialCalendar } from "@/components/editorial-calendar";
+import { ContentVariants } from "@/components/content-variants";
 
 type Workspace = { id: string; name: string; slug: string };
 type Project = { id: string; name: string; description: string | null; status: string; dueDate: string | null; _count?: { tasks: number } };
@@ -281,6 +282,7 @@ export function WorkspaceModules() {
           {tab === "tasks" ? <label>المشروع<select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} required><option value="">اختر مشروعاً</option>{projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label> : null}
           {tab === "knowledge" ? <><label>نوع العنصر<select value={kind} onChange={(e) => setKind(e.target.value)}>{["NOTE", "LINK", "DOCUMENT", "REFERENCE"].map((v) => <option key={v} value={v}>{labels[v]}</option>)}</select></label><label>رابط المصدر<input type="url" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://..." /></label></> : null}
           {tab === "content" ? <><label>قناة النشر<input value={channel} onChange={(e) => setChannel(e.target.value)} maxLength={60} placeholder="LinkedIn، X، Instagram..." /></label><button className="secondary-action" type="button" onClick={() => void generateContentDraft()} disabled={generating || busy}>{generating ? "جارٍ إعداد المسودة..." : "✧ إنشاء مسودة بالذكاء الاصطناعي"}</button></> : null}
+          {tab === "content" && editingId ? <ContentVariants contentItemId={editingId} /> : null}
           {(tab === "projects" || tab === "tasks" || (tab === "content" && status === "SCHEDULED")) ? <label>{tab === "content" ? "موعد الجدولة" : "تاريخ الاستحقاق"}<input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label> : null}
           <button className="auth-submit" type="submit" disabled={busy || !workspaceId || (tab === "tasks" && !projectFilter)}>{busy ? "جارٍ الحفظ..." : editingId ? "حفظ التعديلات" : "إضافة إلى مساحة العمل"}</button>
         </form>
