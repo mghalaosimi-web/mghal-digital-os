@@ -97,7 +97,12 @@ export function WorkspaceModules() {
     }
   }
 
-  useEffect(() => { void loadWorkspaces(); }, []);
+  useEffect(() => {
+    void loadWorkspaces();
+    const refresh = () => { void loadWorkspaces(); };
+    window.addEventListener("mghal:workspace-changed", refresh);
+    return () => window.removeEventListener("mghal:workspace-changed", refresh);
+  }, []);
   useEffect(() => { if (workspaceId) void loadData(); }, [workspaceId]);
   useEffect(() => {
     if (tab !== "tasks" || !projectFilter) { setTasks([]); return; }
