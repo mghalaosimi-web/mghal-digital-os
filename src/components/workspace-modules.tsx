@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { EditorialCalendar } from "@/components/editorial-calendar";
 
 type Workspace = { id: string; name: string; slug: string };
 type Project = { id: string; name: string; description: string | null; status: string; dueDate: string | null; _count?: { tasks: number } };
@@ -253,6 +254,13 @@ export function WorkspaceModules() {
           </div>}
         </div>
       </div>
+      <EditorialCalendar
+        items={content}
+        onEdit={(item) => {
+          setTab("content");
+          editItem(item);
+        }}
+      />
     </section>
   );
 }

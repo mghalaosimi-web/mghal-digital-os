@@ -10,6 +10,14 @@ const schema = z.object({
   channel: z.string().trim().max(60).optional(),
   status: z.enum(["IDEA", "DRAFT", "REVIEW", "APPROVED", "SCHEDULED", "PUBLISHED", "ARCHIVED"]).default("IDEA"),
   scheduledAt: z.string().datetime().optional(),
+}).superRefine((value, context) => {
+  if (value.status === "SCHEDULED" && !value.scheduledAt) {
+    context.addIssue({
+      code: "custom",
+      path: ["scheduledAt"],
+      message: "يجب تحديد موعد عند جدولة المحتوى.",
+    });
+  }
 });
 
 export async function GET(request: Request) {
