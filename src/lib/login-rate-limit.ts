@@ -23,6 +23,10 @@ function getLoginLimiter(): Ratelimit | null {
 export async function checkLoginRateLimit(request: Request) {
   const limiter = getLoginLimiter();
   if (!limiter) {
+    // Never silently disable brute-force protection on a public production deployment.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Login rate limiting requires UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.");
+    }
     return { success: true, limit: 8, remaining: 8, reset: 0, configured: false };
   }
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
