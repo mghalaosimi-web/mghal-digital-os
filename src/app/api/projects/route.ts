@@ -4,26 +4,27 @@ import { requireOwnerApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 const createProjectSchema = z.object({
-  workspaceId: z.string().min(1),
+  workspaceId: z.string().trim().min(1).max(128),
   name: z.string().trim().min(2).max(120),
   description: z.string().max(5000).optional(),
   status: z.enum(["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED"]).default("PLANNING"),
   dueDate: z.string().datetime().optional(),
-});
+}).strict();
+
+const querySchema = z.object({ workspaceId: z.string().trim().min(1).max(128) });
 
 export async function GET(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-  const { searchParams } = new URL(request.url);
-  const workspaceId = searchParams.get("workspaceId");
-  if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
+  const parsed = querySchema.safeParse({ workspaceId: new URL(request.url).searchParams.get("workspaceId") });
+  if (!parsed.success) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
   const projects = await prisma.project.findMany({
-    where: { workspaceId },
+    where: { workspaceId: parsed.data.workspaceId },
     include: { _count: { select: { tasks: true } } },
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
-  return NextResponse.json({ data: projects });
+  return NextResponse.json({ data: projects }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
