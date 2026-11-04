@@ -8,14 +8,14 @@ const schema = z.object({
   title: z.string().trim().min(3).max(180),
   channel: z.string().trim().max(80).optional(),
   context: z.string().max(6000).optional(),
-});
+}).strict();
 
 export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL;
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  const model = process.env.OPENAI_MODEL?.trim();
   if (!apiKey || !model) {
     return NextResponse.json(
       { error: "مساعد الذكاء الاصطناعي غير مهيأ. أضف OPENAI_API_KEY وOPENAI_MODEL إلى متغيرات البيئة في Render." },
