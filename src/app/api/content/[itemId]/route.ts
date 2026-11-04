@@ -27,14 +27,26 @@ export async function PATCH(request: Request, context: Context) {
     return NextResponse.json({ error: "Invalid content update", details: parsed.success ? undefined : parsed.error.flatten() }, { status: 400 });
   }
 
-  const existing = await prisma.contentItem.findUnique({
-    where: { id: itemId },
-    select: { id: true, workspaceId: true },
-  });
-  if (!existing) return NextResponse.json({ error: "Content item not found" }, { status: 404 });
-
   const { scheduledAt, status, ...fields } = parsed.data;
-  const item = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.contentItem.findUnique({
+      where: { id: itemId },
+      select: { id: true, workspaceId: true, status: true, scheduledAt: true },
+    });
+    if (!existing) return { error: "not_found" as const };
+
+    const effectiveStatus = status ?? existing.status;
+    const effectiveScheduledAt = scheduledAt !== undefined
+      ? scheduledAt
+      : existing.scheduledAt?.toISOString() ?? null;
+
+    if (effectiveStatus === "SCHEDULED" && !effectiveScheduledAt) {
+      return { error: "schedule_required" as const };
+    }
+    if (effectiveStatus !== "SCHEDULED" && scheduledAt) {
+      return { error: "schedule_status_mismatch" as const };
+    }
+
     const updated = await tx.contentItem.update({
       where: { id: itemId },
       data: {
@@ -43,15 +55,27 @@ export async function PATCH(request: Request, context: Context) {
           status,
           publishedAt: status === "PUBLISHED" ? new Date() : null,
         } : {}),
-        ...(scheduledAt !== undefined ? { scheduledAt: scheduledAt ? new Date(scheduledAt) : null } : {}),
+        ...(effectiveStatus !== "SCHEDULED"
+          ? { scheduledAt: null }
+          : scheduledAt !== undefined
+            ? { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }
+            : {}),
       },
     });
     await tx.auditEvent.create({
       data: { workspaceId: existing.workspaceId, action: "content.updated", resource: "ContentItem", resourceId: itemId },
     });
-    return updated;
+    return { item: updated };
   });
-  return NextResponse.json({ data: item });
+
+  if ("error" in result) {
+    if (result.error === "not_found") return NextResponse.json({ error: "Content item not found" }, { status: 404 });
+    if (result.error === "schedule_required") {
+      return NextResponse.json({ error: "يجب تحديد موعد قبل جدولة المحتوى." }, { status: 400 });
+    }
+    return NextResponse.json({ error: "لا يمكن تعيين موعد إلا للمحتوى المجدول." }, { status: 400 });
+  }
+  return NextResponse.json({ data: result.item });
 }
 
 export async function DELETE(request: Request, context: Context) {
