@@ -36,6 +36,8 @@
 - [الأمن والخصوصية](docs/SECURITY.md)
 - [خارطة الطريق](docs/ROADMAP.md)
 - [قرارات التصميم](docs/DECISIONS.md)
+- [دليل الإعداد](docs/SETUP.md)
+- [مرجع API](docs/API.md)
 - [إرشادات المساهمة](CONTRIBUTING.md)
 
 ## الحالة والخطوة التالية
