@@ -23,10 +23,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Install dependencies
         run: npm install
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: npm run db:generate
       - name: Type check
         run: npm run typecheck
       - name: Production build
