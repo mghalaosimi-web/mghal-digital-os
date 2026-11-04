@@ -40,6 +40,33 @@ enum ContentStatus {
   ARCHIVED
 }
 
+enum SocialPlatform {
+  X
+  LINKEDIN
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  YOUTUBE
+  THREADS
+  PINTEREST
+  REDDIT
+  BLUESKY
+  MASTODON
+  TELEGRAM
+  DISCORD
+}
+
+enum VariantStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELLED
+}
+
 enum KnowledgeType {
   NOTE
   LINK
@@ -137,20 +164,40 @@ model KnowledgeItem {
 }
 
 model ContentItem {
-  id          String        @id @default(cuid())
+  id          String           @id @default(cuid())
   workspaceId String
   title       String
-  body        String        @db.Text
-  status      ContentStatus @default(IDEA)
+  body        String           @db.Text
+  status      ContentStatus    @default(IDEA)
   channel     String?
   scheduledAt DateTime?
   publishedAt DateTime?
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  variants    ContentVariant[]
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   @@index([workspaceId, status])
   @@index([workspaceId, scheduledAt])
+}
+
+model ContentVariant {
+  id             String         @id @default(cuid())
+  contentItemId  String
+  platform       SocialPlatform
+  body           String         @db.Text
+  status         VariantStatus  @default(DRAFT)
+  scheduledAt    DateTime?      @db.Timestamptz(6)
+  publishedAt    DateTime?      @db.Timestamptz(6)
+  externalPostId String?
+  lastError      String?        @db.Text
+  contentItem    ContentItem    @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(6)
+
+  @@unique([contentItemId, platform])
+  @@index([status, scheduledAt])
+  @@index([contentItemId, status])
 }
 
 model AuditEvent {
