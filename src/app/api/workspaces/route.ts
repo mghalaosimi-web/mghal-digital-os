@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 const schema = z.object({
   name: z.string().trim().min(2).max(80),
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(60),
-});
+}).strict();
 
 export async function GET(request: Request) {
   const denied = requireOwnerApi(request);
