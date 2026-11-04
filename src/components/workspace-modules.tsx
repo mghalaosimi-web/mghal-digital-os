@@ -180,7 +180,7 @@ export function WorkspaceModules() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setNotice("تم تجهيز نسخة JSON من بيانات مساحة العمل.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر تصدير مساحة العمل");
