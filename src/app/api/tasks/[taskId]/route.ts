@@ -16,36 +16,39 @@ type Context = { params: Promise<{ taskId: string }> };
 export async function PATCH(request: Request, context: Context) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-
   const { taskId } = await context.params;
-  const parsed = updateSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid task data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
 
-  const existing = await prisma.task.findUnique({ where: { id: taskId }, include: { project: true } });
-  if (!existing) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 }); }
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid task data", details: parsed.error.flatten() }, { status: 400 });
 
-  const { dueDate, status, ...fields } = parsed.data;
-  const task = await prisma.task.update({
+  const existing = await prisma.task.findUnique({
     where: { id: taskId },
-    data: {
-      ...fields,
-      ...(status ? { status, completedAt: status === "DONE" ? new Date() : null } : {}),
-      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-    },
+    include: { project: { select: { workspaceId: true } } },
   });
+  if (!existing) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  const { dueDate, status, ...fields } = parsed.data;
 
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId: existing.project.workspaceId,
-      action: "task.updated",
-      resource: "Task",
-      resourceId: task.id,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updated = await tx.task.update({
+      where: { id: taskId },
+      data: {
+        ...fields,
+        ...(status ? { status, completedAt: status === "DONE" ? new Date() : null } : {}),
+        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      },
+    });
+    await tx.auditEvent.create({
+      data: {
+        workspaceId: existing.project.workspaceId,
+        action: "task.updated",
+        resource: "Task",
+        resourceId: updated.id,
+      },
+    });
+    return updated;
   });
   return NextResponse.json({ data: task });
 }
