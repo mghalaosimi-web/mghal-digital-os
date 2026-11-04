@@ -16,6 +16,10 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      # Build-time placeholder only. No database connection is opened in CI.
+      DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/mghal_ci?schema=public
+      OWNER_API_TOKEN: ci-placeholder-token-that-is-not-used-by-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,10 +27,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Generate Prisma client
-        run: npx prisma generate
+        run: npm run db:generate
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
       - name: Type check
         run: npm run typecheck
       - name: Production build

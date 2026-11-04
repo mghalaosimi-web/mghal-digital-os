@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireOwnerApi } from "@/lib/api-auth";
+import { readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
@@ -33,14 +34,19 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-  const parsed = schema.safeParse(await request.json());
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const parsed = schema.safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ error: "Invalid knowledge item", details: parsed.error.flatten() }, { status: 400 });
   const { workspaceId, ...data } = parsed.data;
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
   if (!workspace) return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  const item = await prisma.knowledgeItem.create({ data: { ...data, workspaceId } });
-  await prisma.auditEvent.create({
-    data: { workspaceId, action: "knowledge.created", resource: "KnowledgeItem", resourceId: item.id },
+  const item = await prisma.$transaction(async (tx) => {
+    const created = await tx.knowledgeItem.create({ data: { ...data, workspaceId } });
+    await tx.auditEvent.create({
+      data: { workspaceId, action: "knowledge.created", resource: "KnowledgeItem", resourceId: created.id },
+    });
+    return created;
   });
   return NextResponse.json({ data: item }, { status: 201 });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireOwnerApi } from "@/lib/api-auth";
+import { readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 const updateSchema = z.object({
@@ -18,7 +19,9 @@ export async function PATCH(request: Request, context: Context) {
   if (denied) return denied;
 
   const { taskId } = await context.params;
-  const parsed = updateSchema.safeParse(await request.json());
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const parsed = updateSchema.safeParse(body.data);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid task data", details: parsed.error.flatten() },
@@ -30,22 +33,24 @@ export async function PATCH(request: Request, context: Context) {
   if (!existing) return NextResponse.json({ error: "Task not found" }, { status: 404 });
 
   const { dueDate, status, ...fields } = parsed.data;
-  const task = await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      ...fields,
-      ...(status ? { status, completedAt: status === "DONE" ? new Date() : null } : {}),
-      ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-    },
-  });
-
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId: existing.project.workspaceId,
-      action: "task.updated",
-      resource: "Task",
-      resourceId: task.id,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const updated = await tx.task.update({
+      where: { id: taskId },
+      data: {
+        ...fields,
+        ...(status ? { status, completedAt: status === "DONE" ? new Date() : null } : {}),
+        ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
+      },
+    });
+    await tx.auditEvent.create({
+      data: {
+        workspaceId: existing.project.workspaceId,
+        action: "task.updated",
+        resource: "Task",
+        resourceId: updated.id,
+      },
+    });
+    return updated;
   });
   return NextResponse.json({ data: task });
 }
