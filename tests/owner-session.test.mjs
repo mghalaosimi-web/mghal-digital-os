@@ -35,6 +35,9 @@ test("owner sessions reject missing, malformed, and tampered values", () => {
   assert.equal(verifyOwnerSession(""), false);
   assert.equal(verifyOwnerSession("not.a.valid.session.extra"), false);
   assert.equal(verifyOwnerSession(session + "tampered"), false);
+  const [payload, signature] = session.split(".");
+  assert.equal(verifyOwnerSession(payload + "." + signature + "!"), false);
+  assert.equal(verifyOwnerSession(payload + "." + signature.slice(0, -1) + "*"), false);
 });
 
 test("owner sessions are invalidated when the owner token rotates", () => {
