@@ -50,9 +50,13 @@ enum KnowledgeType {
 model User {
   id          String       @id @default(cuid())
   email       String       @unique
-  name        String?
-  memberships Membership[]
-  createdAt   DateTime     @default(now())
+  name            String?
+  passwordHash    String?
+  emailVerifiedAt DateTime?      @db.Timestamptz(6)
+  disabledAt      DateTime?      @db.Timestamptz(6)
+  memberships     Membership[]
+  sessions        UserSession[]
+  createdAt       DateTime       @default(now())
   updatedAt   DateTime     @updatedAt
 }
 
@@ -64,8 +68,9 @@ model Workspace {
   projects    Project[]
   knowledge   KnowledgeItem[]
   content     ContentItem[]
-  auditEvents AuditEvent[]
-  createdAt   DateTime     @default(now())
+  auditEvents  AuditEvent[]
+  invitations  WorkspaceInvitation[]
+  createdAt    DateTime       @default(now())
   updatedAt   DateTime     @updatedAt
 }
 
@@ -161,4 +166,33 @@ model AuditEvent {
 
   @@index([workspaceId, createdAt])
   @@index([resource, resourceId])
+}
+
+
+model UserSession {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime  @db.Timestamptz(6)
+  revokedAt  DateTime? @db.Timestamptz(6)
+  lastSeenAt DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model WorkspaceInvitation {
+  id          String    @id @default(cuid())
+  workspaceId String
+  email       String
+  role        String    @default("EDITOR")
+  tokenHash   String    @unique
+  expiresAt   DateTime  @db.Timestamptz(6)
+  acceptedAt  DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+  @@index([expiresAt])
 }
