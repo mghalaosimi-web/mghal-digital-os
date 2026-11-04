@@ -26,6 +26,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm install
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
       - name: Validate Prisma schema
         run: npx prisma validate
         env:
