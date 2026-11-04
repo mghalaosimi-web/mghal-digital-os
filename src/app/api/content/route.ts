@@ -4,41 +4,34 @@ import { requireOwnerApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
-  workspaceId: z.string().min(1),
+  workspaceId: z.string().trim().min(1).max(128),
   title: z.string().trim().min(2).max(180),
   body: z.string().max(30000).default(""),
   channel: z.string().trim().max(60).optional(),
   status: z.enum(["IDEA", "DRAFT", "REVIEW", "APPROVED", "SCHEDULED", "PUBLISHED", "ARCHIVED"]).default("IDEA"),
   scheduledAt: z.string().datetime().optional(),
-}).superRefine((value, context) => {
+}).strict().superRefine((value, context) => {
   if (value.status === "SCHEDULED" && !value.scheduledAt) {
-    context.addIssue({
-      code: "custom",
-      path: ["scheduledAt"],
-      message: "يجب تحديد موعد عند جدولة المحتوى.",
-    });
+    context.addIssue({ code: "custom", path: ["scheduledAt"], message: "يجب تحديد موعد عند جدولة المحتوى." });
   }
   if (value.status !== "SCHEDULED" && value.scheduledAt) {
-    context.addIssue({
-      code: "custom",
-      path: ["scheduledAt"],
-      message: "لا يمكن تعيين موعد إلا للمحتوى المجدول.",
-    });
+    context.addIssue({ code: "custom", path: ["scheduledAt"], message: "لا يمكن تعيين موعد إلا للمحتوى المجدول." });
   }
 });
+
+const querySchema = z.object({ workspaceId: z.string().trim().min(1).max(128) });
 
 export async function GET(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-  const { searchParams } = new URL(request.url);
-  const workspaceId = searchParams.get("workspaceId");
-  if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
+  const parsed = querySchema.safeParse({ workspaceId: new URL(request.url).searchParams.get("workspaceId") });
+  if (!parsed.success) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
   const items = await prisma.contentItem.findMany({
-    where: { workspaceId },
+    where: { workspaceId: parsed.data.workspaceId },
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
-  return NextResponse.json({ data: items });
+  return NextResponse.json({ data: items }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -56,7 +49,12 @@ export async function POST(request: Request) {
 
   const item = await prisma.$transaction(async (tx) => {
     const created = await tx.contentItem.create({
-      data: { ...data, workspaceId, ...(scheduledAt ? { scheduledAt: new Date(scheduledAt) } : {}), ...(data.status === "PUBLISHED" ? { publishedAt: new Date() } : {}) },
+      data: {
+        ...data,
+        workspaceId,
+        ...(scheduledAt ? { scheduledAt: new Date(scheduledAt) } : {}),
+        ...(data.status === "PUBLISHED" ? { publishedAt: new Date() } : {}),
+      },
     });
     await tx.auditEvent.create({
       data: { workspaceId, action: "content.created", resource: "ContentItem", resourceId: created.id },
