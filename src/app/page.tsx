@@ -1,4 +1,5 @@
 import { OwnerGate } from "@/components/owner-gate";
+import { WorkspaceDashboard } from "@/components/workspace-dashboard";
 
 const modules = [
   { name: "الهوية الرقمية", detail: "ملفك المهني ونبرة علامتك وأصولك", icon: "◈", status: "قيد التأسيس" },
@@ -31,6 +32,8 @@ export default function Home() {
             <div className="hero-copy"><div className="eyebrow"><span className="status-dot" /> DIGITAL COMMAND CENTER</div><h1>كل أعمالك الرقمية،<br/><em>في مكان واحد.</em></h1><p>مساحة موحدة لإدارة هويتك ومحتواك ومشاريعك ومعرفتك، مع ذكاء اصطناعي يعمل تحت إشرافك.</p><a className="primary-link" href="#modules">استكشف الوحدات <span>←</span></a></div>
             <div className="hero-orbit" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit-core">M<span>+</span></div><i className="orbit-dot dot-one" /><i className="orbit-dot dot-two" /><i className="orbit-dot dot-three" /></div>
           </section>
+
+          <WorkspaceDashboard />
 
           <section className="section-head" id="modules"><div><div className="eyebrow muted">WORKSPACE MODULES</div><h2>مكونات منظومتك</h2><p>أساس متكامل قابل للتوسع، يبدأ من احتياجاتك اليومية.</p></div><span className="module-count">06 وحدات أساسية</span></section>
           <section className="module-grid">{modules.map((module, index) => <article className="module-card" key={module.name}><div className="card-top"><span className="module-icon">{module.icon}</span><span className="card-index">0{index + 1}</span></div><h3>{module.name}</h3><p>{module.detail}</p><div className="card-footer"><span className="mini-dot" />{module.status}<span className="card-arrow">↗</span></div></article>)}</section>
