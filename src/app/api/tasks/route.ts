@@ -14,13 +14,9 @@ const createSchema = z.object({
 export async function GET(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get("projectId");
-  if (!projectId) {
-    return NextResponse.json({ error: "projectId is required" }, { status: 400 });
-  }
-
+  if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
   const tasks = await prisma.task.findMany({
     where: { projectId },
     orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
@@ -32,29 +28,27 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-
-  const parsed = createSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Invalid task data", details: parsed.error.flatten() },
-      { status: 400 },
-    );
-  }
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 }); }
+  const parsed = createSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid task data", details: parsed.error.flatten() }, { status: 400 });
 
   const { dueDate, ...data } = parsed.data;
-  const project = await prisma.project.findUnique({ where: { id: data.projectId } });
+  const project = await prisma.project.findUnique({
+    where: { id: data.projectId },
+    select: { id: true, workspaceId: true },
+  });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const task = await prisma.task.create({
-    data: { ...data, ...(dueDate ? { dueDate: new Date(dueDate) } : {}) },
-  });
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId: project.workspaceId,
-      action: "task.created",
-      resource: "Task",
-      resourceId: task.id,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const created = await tx.task.create({
+      data: { ...data, ...(dueDate ? { dueDate: new Date(dueDate) } : {}) },
+    });
+    await tx.auditEvent.create({
+      data: { workspaceId: project.workspaceId, action: "task.created", resource: "Task", resourceId: created.id },
+    });
+    return created;
   });
   return NextResponse.json({ data: task }, { status: 201 });
 }
