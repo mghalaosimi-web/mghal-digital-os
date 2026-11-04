@@ -120,10 +120,15 @@ export function WorkspaceModules() {
     const query = knowledgeQuery.trim();
     const url = "/api/knowledge?workspaceId=" + encodeURIComponent(workspaceId)
       + (query ? "&q=" + encodeURIComponent(query) : "");
-    request<{ data: Knowledge[] }>(url)
-      .then((result) => { if (active) setKnowledge(result.data); })
-      .catch((e) => { if (active) setError(e instanceof Error ? e.message : "تعذر البحث في قاعدة المعرفة"); });
-    return () => { active = false; };
+    const timeout = window.setTimeout(() => {
+      request<{ data: Knowledge[] }>(url)
+        .then((result) => { if (active) setKnowledge(result.data); })
+        .catch((e) => { if (active) setError(e instanceof Error ? e.message : "تعذر البحث في قاعدة المعرفة"); });
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
   }, [tab, workspaceId, knowledgeQuery]);
 
   useEffect(() => {
