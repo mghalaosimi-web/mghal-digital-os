@@ -10,18 +10,28 @@ const schema = z.object({
   context: z.string().max(6000).optional(),
 }).strict();
 
+function resolveAIConfig() {
+  const apiKey = process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+  const model = process.env.AI_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || "";
+  const baseUrl = (process.env.AI_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(baseUrl);
+  } catch {
+    return { error: "عنوان مزود الذكاء الاصطناعي غير صالح." } as const;
+  }
+  const localHost = ["localhost", "127.0.0.1", "::1"].includes(parsedUrl.hostname);
+  if (parsedUrl.protocol !== "https:" && !(process.env.NODE_ENV !== "production" && localHost)) {
+    return { error: "يجب أن يستخدم عنوان مزود الذكاء الاصطناعي HTTPS في بيئة الإنتاج." } as const;
+  }
+  if (!model) return { error: "مساعد الذكاء الاصطناعي غير مهيأ. أضف AI_MODEL مع إعدادات مزود متوافق مع OpenAI." } as const;
+  if (!apiKey && !localHost) return { error: "مفتاح مزود الذكاء الاصطناعي غير مهيأ. أضف AI_API_KEY إلى إعدادات الخادم." } as const;
+  return { apiKey, model, endpoint: `${baseUrl}/chat/completions` } as const;
+}
+
 export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  const model = process.env.OPENAI_MODEL?.trim();
-  if (!apiKey || !model) {
-    return NextResponse.json(
-      { error: "مساعد الذكاء الاصطناعي غير مهيأ. أضف OPENAI_API_KEY وOPENAI_MODEL إلى متغيرات البيئة في Render." },
-      { status: 503 },
-    );
-  }
 
   let body: unknown;
   try { body = await request.json(); }
@@ -32,17 +42,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "بيانات إنشاء المسودة غير صحيحة.", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  const config = resolveAIConfig();
+  if ("error" in config) {
+    return NextResponse.json({ error: config.error }, { status: 503 });
+  }
+
   const { title, channel, context } = parsed.data;
   try {
-    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (config.apiKey) headers.Authorization = `Bearer ${config.apiKey}`;
+    const upstream = await fetch(config.endpoint, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       signal: AbortSignal.timeout(45_000),
       body: JSON.stringify({
-        model,
+        model: config.model,
         temperature: 0.7,
         messages: [
           {
@@ -59,7 +73,7 @@ export async function POST(request: Request) {
 
     if (!upstream.ok) {
       if (upstream.status === 401 || upstream.status === 403) {
-        return NextResponse.json({ error: "رفض مزود الذكاء الاصطناعي المفتاح المهيأ. تحقق من OPENAI_API_KEY وصلاحياته." }, { status: 502 });
+        return NextResponse.json({ error: "رفض مزود الذكاء الاصطناعي بيانات الاعتماد. تحقق من AI_API_KEY وصلاحياته." }, { status: 502 });
       }
       if (upstream.status === 429) {
         return NextResponse.json({ error: "وصل مزود الذكاء الاصطناعي إلى حد الاستخدام أو الرصيد. حاول لاحقاً." }, { status: 429 });
