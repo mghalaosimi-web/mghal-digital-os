@@ -1,58 +1,46 @@
-# نموذج البيانات الأولي
+# نموذج البيانات: الموجود والفجوات
 
-هذا نموذج نطاق مفاهيمي، وليس schema منفذاً أو migration.
+## الحالة الحالية
 
-## قواعد عامة
+يوجد مخطط Prisma فعلي في prisma/schema.prisma لمزود PostgreSQL. لم يتم إنشاء أو تطبيق أول migration على قاعدة بيانات فعلية أثناء هذه المرحلة لعدم توفر DATABASE_URL لقاعدة بيانات مخصصة. لذلك لا تساوي عبارة "schema موجود" عبارة "قاعدة البيانات منشورة وجاهزة".
 
-- كل سجل مملوك لمساحة عمل عبر workspace_id عند دعم أكثر من مساحة.
-- استخدم UUID/ULID كمعرفات عامة.
-- created_at وupdated_at بتوقيت UTC.
-- لا تخزن الأسرار في جداول إعدادات عادية.
-- استخدم soft delete فقط عندما توجد حاجة استرجاع/تدقيق واضحة، مع سياسة احتفاظ.
-- أضف فهارس للمفاتيح الأجنبية وحقول البحث والتصفية.
+## النماذج المنفذة في Prisma
 
-## الكيانات الأساسية
+- **User:** سجل مستخدم أساسي وبريد فريد واسم اختياري. لا يحتوي حالياً كلمة مرور أو موفر هوية أو جلسات.
+- **Workspace:** مساحة عمل باسم وslug فريد.
+- **Membership:** ربط User وWorkspace مع role نصي افتراضي OWNER. لا توجد بعد قيود RBAC متكاملة أو سياسة تفويض مستخدمة من API.
+- **Project:** مشروع مرتبط بمساحة عمل، حالة وتواريخ وفهرسة.
+- **Task:** مهمة مرتبطة بمشروع، حالة وأولوية وتاريخ استحقاق.
+- **KnowledgeItem:** ملاحظة/رابط/مستند/مرجع مع محتوى ووسوم.
+- **ContentItem:** محتوى أساسي وحالة وقناة وموعد نشر اختياري. وجود حالة PUBLISHED لا يعني أن المنظومة نشرت المحتوى فعلياً.
+- **AuditEvent:** سجل نشاط مرتبط بمساحة عمل.
 
-### Workspace & Membership
-Workspace(id, name, slug, created_at)
-Membership(id, workspace_id, user_id, role, status)
+## العلاقات والقيود الحالية
 
-### Identity
-Profile(id, workspace_id, display_name, bio, locale, timezone)
-BrandVoice(id, workspace_id, name, guidelines, examples)
-Asset(id, workspace_id, storage_key, mime_type, size, checksum, metadata)
+- Workspace يمتلك Projects وKnowledgeItems وContentItems وAuditEvents.
+- Project يمتلك Tasks.
+- User يرتبط بـ Workspace عبر Membership.
+- توجد فهارس على Workspace/status وتواريخ التحديث والاستحقاق.
+- عمليات الكتابة المدعومة تربط تعديل السجل وAuditEvent بمعاملة Prisma واحدة.
 
-### Content
-ContentItem(id, workspace_id, title, body, content_type, status, created_by)
-ContentVariant(id, content_item_id, channel, body, status, scheduled_at, published_at)
-ContentApproval(id, content_variant_id, reviewer_id, decision, note, decided_at)
-ChannelConnection(id, workspace_id, provider, external_account_id, status, secret_reference)
+## فجوات النموذج
 
-### Projects
-Project(id, workspace_id, name, description, status, start_at, due_at)
-Task(id, project_id, title, description, status, priority, assignee_id, due_at)
-TaskDependency(task_id, depends_on_task_id)
-Activity(id, workspace_id, actor_id, entity_type, entity_id, action, payload)
+لم تُنفذ بعد نماذج مستقلة لـ:
+- IdentityProfile وBrandVoice وAssets.
+- ContentVariant وChannelConnection وApproval.
+- TaskDependency وComments وAttachments.
+- KnowledgeSource وKnowledgeChunk وEmbeddings.
+- Automation وAutomationRun وAutomationStepRun.
+- AIInvocation وProviderConfiguration.
+- Secret references وIntegration health.
+- Notification وAnalyticsEvent.
 
-### Knowledge
-KnowledgeSource(id, workspace_id, source_type, title, uri, checksum, metadata)
-KnowledgeChunk(id, source_id, chunk_index, content, embedding_reference)
-Tag(id, workspace_id, name)
-TagAssignment(tag_id, entity_type, entity_id)
+## قواعد التطوير
 
-### Automation
-Automation(id, workspace_id, name, trigger_type, definition, enabled)
-AutomationRun(id, automation_id, status, started_at, finished_at, idempotency_key, error_summary)
-AutomationStepRun(id, run_id, step_key, status, input_summary, output_summary, started_at, finished_at)
-
-### AI & Audit
-AIInvocation(id, workspace_id, purpose, provider, model, status, token_usage, source_refs)
-AuditEvent(id, workspace_id, actor_id, action, resource_type, resource_id, created_at, metadata)
-
-## قيود مهمة
-
-- unique(workspace_id, slug) للمساحات/المعرفات المناسبة.
-- unique(automation_id, idempotency_key) لمنع تنفيذ مكرر.
-- لا تسجل access tokens أو prompts التي تحتوي بيانات سرية في audit.
-- يجب فرض ملكية workspace في طبقة الاستعلام وليس في الواجهة فقط.
-- حذف اتصال قناة يجب أن يلغي/يدوّر السر في secret manager.
+1. كل سجل تابع لمساحة عمل يجب أن يحمل workspaceId أو يصل إليها بعلاقة قابلة للتحقق.
+2. لا تعتمد على قيمة workspaceId يرسلها العميل كدليل صلاحية؛ يجب التحقق من العضوية/الدور خادمياً.
+3. لا تخزن مفاتيح التكامل أو كلمات المرور في جداول إعدادات عامة.
+4. استخدم UTC للتواريخ، ووضح المنطقة الزمنية عند العرض والجدولة.
+5. أضف migrations مراجعة ومفهرسة بدلاً من db push في بيئة الإنتاج.
+6. عرّف سياسة الحذف والاحتفاظ والنسخ الاحتياطي قبل تخزين بيانات تشغيلية مهمة.
+7. أضف اختبارات migration واختبارات عزل بين مساحات العمل قبل الإطلاق.

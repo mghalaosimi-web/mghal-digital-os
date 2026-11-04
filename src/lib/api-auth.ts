@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 
 export function requireOwnerApi(request: Request): NextResponse | null {
   const configured = process.env.OWNER_API_TOKEN;
-  if (!configured) {
+  if (!configured || configured.length < 32) {
     return NextResponse.json(
-      { error: "API is not configured. Set OWNER_API_TOKEN on the server." },
+      { error: "API is not configured with a sufficiently strong owner token." },
       { status: 503 },
     );
   }

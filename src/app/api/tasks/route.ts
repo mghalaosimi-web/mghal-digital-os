@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireOwnerApi } from "@/lib/api-auth";
+import { readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 const createSchema = z.object({
@@ -33,7 +34,9 @@ export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
 
-  const parsed = createSchema.safeParse(await request.json());
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const parsed = createSchema.safeParse(body.data);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid task data", details: parsed.error.flatten() },
@@ -45,16 +48,19 @@ export async function POST(request: Request) {
   const project = await prisma.project.findUnique({ where: { id: data.projectId } });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
-  const task = await prisma.task.create({
-    data: { ...data, ...(dueDate ? { dueDate: new Date(dueDate) } : {}) },
-  });
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId: project.workspaceId,
-      action: "task.created",
-      resource: "Task",
-      resourceId: task.id,
-    },
+  const task = await prisma.$transaction(async (tx) => {
+    const created = await tx.task.create({
+      data: { ...data, ...(dueDate ? { dueDate: new Date(dueDate) } : {}) },
+    });
+    await tx.auditEvent.create({
+      data: {
+        workspaceId: project.workspaceId,
+        action: "task.created",
+        resource: "Task",
+        resourceId: created.id,
+      },
+    });
+    return created;
   });
   return NextResponse.json({ data: task }, { status: 201 });
 }

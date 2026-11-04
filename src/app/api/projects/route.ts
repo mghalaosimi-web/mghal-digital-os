@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireOwnerApi } from "@/lib/api-auth";
+import { readJsonBody } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 
 const createProjectSchema = z.object({
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
 
-  const parsed = createProjectSchema.safeParse(await request.json());
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const parsed = createProjectSchema.safeParse(body.data);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid project data", details: parsed.error.flatten() },
@@ -48,21 +51,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
   }
 
-  const project = await prisma.project.create({
-    data: {
-      ...data,
-      workspaceId,
-      ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
-    },
-  });
-
-  await prisma.auditEvent.create({
-    data: {
-      workspaceId,
-      action: "project.created",
-      resource: "Project",
-      resourceId: project.id,
-    },
+  const project = await prisma.$transaction(async (tx) => {
+    const created = await tx.project.create({
+      data: {
+        ...data,
+        workspaceId,
+        ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
+      },
+    });
+    await tx.auditEvent.create({
+      data: {
+        workspaceId,
+        action: "project.created",
+        resource: "Project",
+        resourceId: created.id,
+      },
+    });
+    return created;
   });
 
   return NextResponse.json({ data: project }, { status: 201 });

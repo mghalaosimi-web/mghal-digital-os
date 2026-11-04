@@ -11,7 +11,7 @@ export default function Home() {
   return (
     <main className="shell">
       <aside className="sidebar">
-        <a className="brand" href="#" aria-label="MGHAL Digital OS home"><span className="brand-mark">M</span><span><strong>MGHAL</strong><small>DIGITAL OS</small></span></a>
+        <a className="brand" href="/" aria-label="MGHAL Digital OS home"><span className="brand-mark">M</span><span><strong>MGHAL</strong><small>DIGITAL OS</small></span></a>
         <div className="workspace-label">مساحة العمل</div>
         <nav className="nav-list" aria-label="التنقل الرئيسي">
           <a className="nav-item active" href="#overview"><span>⌂</span>نظرة عامة</a>
