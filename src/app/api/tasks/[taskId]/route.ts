@@ -9,7 +9,7 @@ const updateSchema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
   dueDate: z.string().datetime().nullable().optional(),
-});
+}).strict();
 
 type Context = { params: Promise<{ taskId: string }> };
 
@@ -19,10 +19,18 @@ export async function PATCH(request: Request, context: Context) {
   const { taskId } = await context.params;
 
   let body: unknown;
-  try { body = await request.json(); }
-  catch { return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 }); }
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Request body must be valid JSON" }, { status: 400 });
+  }
   const parsed = updateSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid task data", details: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success || Object.keys(parsed.data ?? {}).length === 0) {
+    return NextResponse.json(
+      { error: "Invalid task update", details: parsed.success ? undefined : parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
 
   const existing = await prisma.task.findUnique({
     where: { id: taskId },
@@ -36,7 +44,9 @@ export async function PATCH(request: Request, context: Context) {
       where: { id: taskId },
       data: {
         ...fields,
-        ...(status ? { status, completedAt: status === "DONE" ? new Date() : null } : {}),
+        ...(status
+          ? { status, completedAt: status === "DONE" ? existing.completedAt ?? new Date() : null }
+          : {}),
         ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
       },
     });
