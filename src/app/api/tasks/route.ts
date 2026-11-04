@@ -7,6 +7,7 @@ const createSchema = z.object({
   projectId: z.string().min(1),
   title: z.string().trim().min(2).max(180),
   description: z.string().max(5000).optional(),
+  status: z.enum(["TODO", "IN_PROGRESS", "BLOCKED", "DONE", "CANCELLED"]).default("TODO"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
   dueDate: z.string().datetime().optional(),
 });
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
 
   const task = await prisma.$transaction(async (tx) => {
     const created = await tx.task.create({
-      data: { ...data, ...(dueDate ? { dueDate: new Date(dueDate) } : {}) },
+      data: { ...data, ...(dueDate ? { dueDate: new Date(dueDate) } : {}), ...(data.status === "DONE" ? { completedAt: new Date() } : {}) },
     });
     await tx.auditEvent.create({
       data: { workspaceId: project.workspaceId, action: "task.created", resource: "Task", resourceId: created.id },
