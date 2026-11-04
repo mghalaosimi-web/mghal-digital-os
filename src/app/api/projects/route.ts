@@ -7,6 +7,7 @@ const createProjectSchema = z.object({
   workspaceId: z.string().min(1),
   name: z.string().trim().min(2).max(120),
   description: z.string().max(5000).optional(),
+  status: z.enum(["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED"]).default("PLANNING"),
   dueDate: z.string().datetime().optional(),
 });
 
