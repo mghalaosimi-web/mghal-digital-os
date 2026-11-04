@@ -11,5 +11,5 @@ export function GET() {
       databaseConfigured: Boolean(process.env.DATABASE_URL),
       ownerApiConfigured: Boolean(ownerToken && ownerToken.length >= 32),
     },
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
