@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 export function GET() {
+  const ownerToken = process.env.OWNER_API_TOKEN?.trim();
   return NextResponse.json({
     status: "ok",
     mode: "liveness",
@@ -8,7 +9,7 @@ export function GET() {
     timestamp: new Date().toISOString(),
     checks: {
       databaseConfigured: Boolean(process.env.DATABASE_URL),
-      ownerApiConfigured: Boolean(process.env.OWNER_API_TOKEN),
+      ownerApiConfigured: Boolean(ownerToken && ownerToken.length >= 32),
     },
   });
 }

@@ -62,3 +62,7 @@
 
 ## حدود الجاهزية
 المصادقة الحالية بوابة مالك واحدة تعتمد `OWNER_API_TOKEN` وجلسة موقعة. ليست نظام حسابات متعددة ولا توفر عضويات وأدواراً مستقلة. وحدات المشاريع والمهام والمعرفة والمحتوى هي إدارة أولية؛ تمت إضافة نقطة تكامل أولية لتوليد مسودات المحتوى عبر OpenAI عند ضبط متغيرات البيئة، لكنها ليست نظام وكلاء أو أتمتة. أما النشر الاجتماعي الفعلي ومحرك الأتمتة والموصلات ومساعدو الذكاء الاصطناعي المتخصصون والمراقبة والنسخ الاحتياطي واختبارات E2E فما زالت أعمالاً مطلوبة قبل الإطلاق العام.
+
+## Login protection
+
+Production login attempts are rate-limited to 8 attempts per IP per 15 minutes using Upstash Redis. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in the deployment environment. Local development remains usable without Redis, but should not be exposed publicly without configuring the limiter. The readiness endpoint checks the database and owner-token configuration without exposing secret values.

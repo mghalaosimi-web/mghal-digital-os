@@ -4,9 +4,19 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 export async function GET() {
-  if (!process.env.DATABASE_URL) {
+  const databaseConfigured = Boolean(process.env.DATABASE_URL?.trim());
+  const ownerToken = process.env.OWNER_API_TOKEN?.trim();
+  const ownerApiConfigured = Boolean(ownerToken && ownerToken.length >= 32);
+
+  if (!databaseConfigured || !ownerApiConfigured) {
     return NextResponse.json(
-      { status: "not_ready", checks: { database: "not_configured" } },
+      {
+        status: "not_ready",
+        checks: {
+          database: databaseConfigured ? "configured" : "not_configured",
+          ownerApi: ownerApiConfigured ? "configured" : "not_configured",
+        },
+      },
       { status: 503 },
     );
   }
@@ -15,7 +25,7 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`;
     return NextResponse.json({
       status: "ready",
-      checks: { database: "reachable" },
+      checks: { database: "reachable", ownerApi: "configured" },
       timestamp: new Date().toISOString(),
     });
   } catch {

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkLoginRateLimit } from "@/lib/login-rate-limit";
 import {
   createOwnerSession,
   OWNER_SESSION_COOKIE,
@@ -44,6 +45,30 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) {
     return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
+  }
+
+  try {
+    const rateLimit = await checkLoginRateLimit(request);
+    if (!rateLimit.success) {
+      const retryAfter = Math.max(1, Math.ceil((rateLimit.reset - Date.now()) / 1000));
+      return NextResponse.json(
+        { error: "محاولات تسجيل الدخول كثيرة. انتظر قليلاً ثم حاول مجدداً." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfter),
+            "RateLimit-Limit": String(rateLimit.limit),
+            "RateLimit-Remaining": String(rateLimit.remaining),
+            "Cache-Control": "no-store",
+          },
+        },
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      { error: "خدمة الحماية من محاولات الدخول غير متاحة مؤقتاً. حاول لاحقاً." },
+      { status: 503 },
+    );
   }
 
   const configured = process.env.OWNER_API_TOKEN?.trim();
