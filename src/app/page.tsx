@@ -1,3 +1,5 @@
+import { OwnerGate } from "@/components/owner-gate";
+
 const modules = [
   { name: "الهوية الرقمية", detail: "ملفك المهني ونبرة علامتك وأصولك", icon: "◈", status: "قيد التأسيس" },
   { name: "استوديو المحتوى", detail: "الأفكار والمسودات والتقويم التحريري", icon: "✳", status: "قيد التأسيس" },
@@ -9,6 +11,7 @@ const modules = [
 
 export default function Home() {
   return (
+    <OwnerGate>
     <main className="shell">
       <aside className="sidebar">
         <a className="brand" href="#" aria-label="MGHAL Digital OS home"><span className="brand-mark">M</span><span><strong>MGHAL</strong><small>DIGITAL OS</small></span></a>
@@ -37,5 +40,6 @@ export default function Home() {
         </div>
       </section>
     </main>
+    </OwnerGate>
   );
 }
