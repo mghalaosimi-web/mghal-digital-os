@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { readOwnerSessionCookie, verifyOwnerSession } from "@/lib/owner-session";
 
 const MIN_TOKEN_LENGTH = 32;
 
@@ -10,6 +11,10 @@ export function requireOwnerApi(request: Request): NextResponse | null {
       { error: "API is not configured securely. Set a random OWNER_API_TOKEN with at least 32 characters." },
       { status: 503 },
     );
+  }
+
+  if (verifyOwnerSession(readOwnerSessionCookie(request))) {
+    return null;
   }
 
   const authorization = request.headers.get("authorization") ?? "";
