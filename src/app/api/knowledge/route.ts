@@ -4,30 +4,38 @@ import { requireOwnerApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
-  workspaceId: z.string().min(1),
+  workspaceId: z.string().trim().min(1).max(128),
   title: z.string().trim().min(2).max(180),
   content: z.string().min(1).max(50000),
   type: z.enum(["NOTE", "LINK", "DOCUMENT", "REFERENCE"]).default("NOTE"),
   sourceUrl: z.string().url().optional(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+}).strict();
+
+const querySchema = z.object({
+  workspaceId: z.string().trim().min(1).max(128),
+  q: z.string().trim().max(200).optional(),
 });
 
 export async function GET(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
-  const { searchParams } = new URL(request.url);
-  const workspaceId = searchParams.get("workspaceId");
-  const query = searchParams.get("q")?.trim();
-  if (!workspaceId) return NextResponse.json({ error: "workspaceId is required" }, { status: 400 });
+  const params = new URL(request.url).searchParams;
+  const parsed = querySchema.safeParse({
+    workspaceId: params.get("workspaceId"),
+    q: params.get("q") ?? undefined,
+  });
+  if (!parsed.success) return NextResponse.json({ error: "Invalid knowledge query", details: parsed.error.flatten() }, { status: 400 });
+  const { workspaceId, q } = parsed.data;
   const items = await prisma.knowledgeItem.findMany({
     where: {
       workspaceId,
-      ...(query ? { OR: [{ title: { contains: query, mode: "insensitive" } }, { content: { contains: query, mode: "insensitive" } }] } : {}),
+      ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }] } : {}),
     },
     orderBy: { updatedAt: "desc" },
     take: 100,
   });
-  return NextResponse.json({ data: items });
+  return NextResponse.json({ data: items }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
