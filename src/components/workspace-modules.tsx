@@ -90,13 +90,12 @@ export function WorkspaceModules() {
       setProjects(p.data);
       setKnowledge(k.data);
       setContent(c.data);
-      if (p.data.length && !p.data.some((item) => item.id === projectFilter)) {
-        setProjectFilter(p.data[0].id);
-        setTasks([]);
-      } else if (projectFilter) {
-        const taskResult = await request<{ data: Task[] }>("/api/tasks?projectId=" + encodeURIComponent(projectFilter));
-        setTasks(taskResult.data);
-      } else {
+      // Never carry a selected project (or its tasks) across workspace boundaries.
+      const nextProjectFilter = p.data.some((item) => item.id === projectFilter)
+        ? projectFilter
+        : p.data[0]?.id ?? "";
+      if (nextProjectFilter !== projectFilter) {
+        setProjectFilter(nextProjectFilter);
         setTasks([]);
       }
     } catch (e) {
