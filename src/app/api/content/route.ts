@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   const item = await prisma.$transaction(async (tx) => {
     const created = await tx.contentItem.create({
-      data: { ...data, workspaceId, ...(scheduledAt ? { scheduledAt: new Date(scheduledAt) } : {}) },
+      data: { ...data, workspaceId, ...(scheduledAt ? { scheduledAt: new Date(scheduledAt) } : {}), ...(data.status === "PUBLISHED" ? { publishedAt: new Date() } : {}) },
     });
     await tx.auditEvent.create({
       data: { workspaceId, action: "content.created", resource: "ContentItem", resourceId: created.id },
