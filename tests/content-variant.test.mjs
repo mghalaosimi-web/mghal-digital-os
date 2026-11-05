@@ -6,28 +6,56 @@ import {
   validateVariantSchedule,
 } from "../src/lib/content-variant.ts";
 
-test("variant review and approval transitions follow the workflow", () => {
-  assert.equal(canTransitionVariantStatus("DRAFT", "IN_REVIEW"), true);
-  assert.equal(canTransitionVariantStatus("IN_REVIEW", "APPROVED"), true);
-  assert.equal(canTransitionVariantStatus("APPROVED", "SCHEDULED"), true);
-  assert.equal(canTransitionVariantStatus("DRAFT", "PUBLISHED"), false);
-  assert.equal(canTransitionVariantStatus("PUBLISHED", "DRAFT"), false);
+const statuses = [
+  "DRAFT", "IN_REVIEW", "APPROVED", "SCHEDULED",
+  "PUBLISHING", "PUBLISHED", "FAILED", "CANCELLED",
+];
+
+const allowedTransitions = [
+  ["DRAFT", "IN_REVIEW"], ["DRAFT", "CANCELLED"],
+  ["IN_REVIEW", "DRAFT"], ["IN_REVIEW", "APPROVED"], ["IN_REVIEW", "CANCELLED"],
+  ["APPROVED", "DRAFT"], ["APPROVED", "SCHEDULED"], ["APPROVED", "CANCELLED"],
+  ["SCHEDULED", "APPROVED"], ["SCHEDULED", "CANCELLED"],
+  ["PUBLISHING", "PUBLISHED"], ["PUBLISHING", "FAILED"],
+  ["FAILED", "APPROVED"], ["FAILED", "CANCELLED"],
+  ["CANCELLED", "DRAFT"],
+];
+
+test("variant lifecycle allows exactly the declared state transitions", () => {
+  for (const from of statuses) {
+    for (const to of statuses) {
+      assert.equal(
+        canTransitionVariantStatus(from, to),
+        allowedTransitions.some(([source, target]) => source === from && target === to),
+        `${from} -> ${to}`,
+      );
+    }
+  }
 });
 
-test("publishing and published states are system controlled", () => {
-  assert.equal(isManualVariantStatus("DRAFT"), true);
-  assert.equal(isManualVariantStatus("APPROVED"), true);
-  assert.equal(isManualVariantStatus("PUBLISHING"), false);
-  assert.equal(isManualVariantStatus("PUBLISHED"), false);
+test("publishing and published states cannot be assigned manually", () => {
+  for (const status of statuses) {
+    assert.equal(isManualVariantStatus(status), !["PUBLISHING", "PUBLISHED"].includes(status));
+  }
 });
 
 test("scheduled variants require a future date", () => {
   assert.match(validateVariantSchedule("SCHEDULED", null) ?? "", /موعد/);
-  assert.match(validateVariantSchedule("SCHEDULED", new Date("2000-01-01T00:00:00.000Z")) ?? "", /المستقبل/);
-  assert.equal(validateVariantSchedule("SCHEDULED", new Date("2099-01-01T00:00:00.000Z")), null);
+  assert.match(
+    validateVariantSchedule("SCHEDULED", new Date("2000-01-01T00:00:00.000Z")) ?? "",
+    /المستقبل/,
+  );
+  assert.equal(validateVariantSchedule("SCHEDULED", new Date(Date.now() + 60_000)), null);
 });
 
-test("non-scheduled variants cannot retain a scheduled date", () => {
-  assert.match(validateVariantSchedule("APPROVED", new Date("2099-01-01T00:00:00.000Z")) ?? "", /فقط/);
+test("only scheduled variants may have a scheduled date", () => {
+  const future = new Date(Date.now() + 60_000);
+  for (const status of statuses.filter((value) => value !== "SCHEDULED")) {
+    assert.match(validateVariantSchedule(status, future) ?? "", /فقط/);
+  }
   assert.equal(validateVariantSchedule("APPROVED", null), null);
+});
+
+test("scheduled variants reject a date at the current instant", () => {
+  assert.match(validateVariantSchedule("SCHEDULED", new Date(0)) ?? "", /المستقبل/);
 });
