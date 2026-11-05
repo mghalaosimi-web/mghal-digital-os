@@ -19,6 +19,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Verify pinned Postiz source
+        run: |
+          test -f integrations/postiz/LICENSE
+          test "$(git -C integrations/postiz rev-parse HEAD)" = "e94383568f7549c373a985f4521021c4353e1a37"
+          git submodule status --recursive
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
