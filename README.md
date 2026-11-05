@@ -35,6 +35,16 @@
 - Upstash Redis وRatelimit
 - GitHub Actions للتحقق المستمر
 
+## مصدر Postiz المدمج
+
+المصدر الكامل لمشروع Postiz محفوظ في `integrations/postiz` كـ Git submodule مثبت على commit محدد، مع ملف AGPL-3.0 وإشعاراته. للحصول على المصدر عند الاستنساخ:
+
+```bash
+git clone --recurse-submodules https://github.com/mghalaosimi-web/mghal-digital-os.git
+```
+
+راجع [دليل دمج مصدر Postiz](docs/POSTIZ-SOURCE-INTEGRATION.md) و[قرار الاعتماد والترخيص](docs/POSTIZ-ADOPTION.md). وجود المصدر لا يعني تشغيل خدمات Postiz أو تفعيل النشر الاجتماعي في تطبيق MGHAL الحالي.
+
 ## إعداد البيئة
 
 انسخ `.env.example` إلى `.env` محلياً، ثم اضبط القيم المناسبة:
@@ -89,8 +99,9 @@ npx prisma validate
 - [دليل الإعداد](docs/SETUP.md)
 - [مرجع API](docs/API.md)
 - [دليل تشغيل الإنتاج](docs/PRODUCTION-RUNBOOK.md)
+- [دليل دمج مصدر Postiz](docs/POSTIZ-SOURCE-INTEGRATION.md)
 - [قرار اعتماد Postiz والترخيص](docs/POSTIZ-ADOPTION.md)
 
 ## الترخيص
 
-لم يُحدد الترخيص بعد. لا تفترض أن إعادة الاستخدام أو التوزيع مسموحان قبل إضافة ملف LICENSE مناسب.
+تطبيق MGHAL الأصلي لم يُحدد ترخيصه بعد. مصدر Postiz داخل `integrations/postiz` مستقل ومرخّص تحت AGPL-3.0؛ راجع إشعاراته وملف LICENSE داخله.
