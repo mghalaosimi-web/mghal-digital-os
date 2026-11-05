@@ -1,0 +1,3 @@
+[submodule "integrations/postiz"]
+	path = integrations/postiz
+	url = https://github.com/mghalaosimi-web/mghal-digital-automation.git
