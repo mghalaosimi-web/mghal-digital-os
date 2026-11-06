@@ -21,6 +21,7 @@ test("uses the first forwarded host when the proxy chain contains multiple value
     headers: {
       origin: "https://app.example.com",
       "x-forwarded-host": "app.example.com, proxy.internal",
+      "x-forwarded-proto": "https",
     },
   });
 
