@@ -30,3 +30,11 @@ test("AI route checks the limiter before processing a generation request", () =>
   assert.match(routeSource, /status:\s*429/);
   assert.match(routeSource, /"Retry-After"/);
 });
+
+
+test("AI generation bounds provider output tokens and validates returned content", () => {
+  assert.match(routeSource, /max_tokens:\s*1800/);
+  assert.match(routeSource, /MAX_GENERATED_CONTENT_LENGTH\s*=\s*20_000/);
+  assert.match(routeSource, /typeof rawContent !== "string"/);
+  assert.match(routeSource, /content\.length > MAX_GENERATED_CONTENT_LENGTH/);
+});
