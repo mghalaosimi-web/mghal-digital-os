@@ -38,3 +38,11 @@ test("AI generation bounds provider output tokens and validates returned content
   assert.match(routeSource, /typeof rawContent !== "string"/);
   assert.match(routeSource, /content\.length > MAX_GENERATED_CONTENT_LENGTH/);
 });
+
+test("AI route caps upstream response bytes before JSON parsing", () => {
+  assert.match(routeSource, /MAX_PROVIDER_RESPONSE_BYTES\s*=\s*256\s*\*\s*1024/);
+  assert.match(routeSource, /response\.body\.getReader\(\)/);
+  assert.match(routeSource, /totalBytes > MAX_PROVIDER_RESPONSE_BYTES/);
+  assert.match(routeSource, /JSON\.parse\(text\)/);
+  assert.match(routeSource, /readProviderJsonLimited\(upstream\)/);
+});
