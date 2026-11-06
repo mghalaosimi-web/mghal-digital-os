@@ -25,6 +25,13 @@ const statusLabels: Record<string, string> = {
   FAILED: "فشل", CANCELLED: "ملغى",
 };
 
+class ApiError extends Error {
+  constructor(message: string, readonly code?: string) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -32,8 +39,14 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error ?? "تعذر تنفيذ العملية");
+  if (!response.ok) {
+    throw new ApiError(result.error ?? "تعذر تنفيذ العملية", result.code);
+  }
   return result as T;
+}
+
+function isVariantsSchemaUnavailable(error: unknown): boolean {
+  return error instanceof ApiError && error.code === "CONTENT_VARIANTS_MIGRATION_REQUIRED";
 }
 
 export function ContentVariants({ contentItemId }: { contentItemId: string }) {
@@ -45,15 +58,23 @@ export function ContentVariants({ contentItemId }: { contentItemId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [schemaUnavailable, setSchemaUnavailable] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
       const result = await api<{ data: Variant[] }>(`/api/content/${contentItemId}/variants`);
       setItems(result.data);
+      setSchemaUnavailable(false);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذر تحميل نسخ القنوات");
+      if (isVariantsSchemaUnavailable(e)) {
+        setSchemaUnavailable(true);
+        setItems([]);
+        setError("");
+      } else {
+        setError(e instanceof Error ? e.message : "تعذر تحميل نسخ القنوات");
+      }
     } finally {
       setLoading(false);
     }
@@ -73,6 +94,7 @@ export function ContentVariants({ contentItemId }: { contentItemId: string }) {
       await load();
       setNotice("أضيفت نسخة القناة.");
     } catch (e) {
+      if (isVariantsSchemaUnavailable(e)) setSchemaUnavailable(true);
       setError(e instanceof Error ? e.message : "تعذر إضافة النسخة");
     } finally { setBusy(false); }
   }
@@ -112,6 +134,11 @@ export function ContentVariants({ contentItemId }: { contentItemId: string }) {
         <strong id="variants-heading">نسخ القنوات الاجتماعية</strong>
         <span>جهّز صياغة مستقلة لكل منصة</span>
       </div>
+      {schemaUnavailable ? (
+        <p className="workspace-alert" role="status">
+          ميزة نسخ القنوات غير مفعّلة في قاعدة الإنتاج حالياً؛ لم يُطبّق ترحيل قاعدة البيانات بعد. بيانات المحتوى الأساسية لم تتأثر، وسيظهر نموذج إدارة النسخ بعد تفعيل المخطط.
+        </p>
+      ) : (
       <form className="variant-create" onSubmit={add}>
         <label>المنصة
           <select value={platform} onChange={(event) => setPlatform(event.target.value)}>
@@ -123,9 +150,10 @@ export function ContentVariants({ contentItemId }: { contentItemId: string }) {
         </label>
         <button className="secondary-action" type="submit" disabled={busy || !body.trim()}>إضافة نسخة للمنصة</button>
       </form>
+      )}
       {error ? <p className="workspace-alert" role="alert">{error}</p> : null}
       {notice ? <p className="workspace-notice" role="status">{notice}</p> : null}
-      {loading ? <p className="variants-empty">جارٍ تحميل النسخ...</p> : items.length === 0 ? <p className="variants-empty">لم تُنشأ نسخ للقنوات بعد.</p> : (
+      {loading ? <p className="variants-empty">جارٍ تحميل النسخ...</p> : schemaUnavailable ? null : items.length === 0 ? <p className="variants-empty">لم تُنشأ نسخ للقنوات بعد.</p> : (
         <div className="variant-list">
           {items.map((item) => (
             <article className="variant-card" key={item.id}>
