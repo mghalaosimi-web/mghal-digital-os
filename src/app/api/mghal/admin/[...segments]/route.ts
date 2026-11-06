@@ -25,6 +25,11 @@ function validOrigin(request: Request) {
   return request.headers.get("origin") === SITE_ORIGIN;
 }
 
+function validReadOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  return !origin || origin === SITE_ORIGIN;
+}
+
 async function upstream(request: Request, path: string, init: RequestInit = {}) {
   const response = await fetch(WORKER_ORIGIN + path, {
     ...init,
@@ -56,7 +61,8 @@ export async function OPTIONS(request: Request) {
 }
 
 export async function GET(request: Request, context: { params: Promise<{ segments: string[] }> }) {
-  if (!validOrigin(request)) return reject(request, "Origin not allowed", 403);
+  // Health and bootstrap status are read-only public metadata; allow server-side probes without Origin.
+  if (!validReadOrigin(request)) return reject(request, "Origin not allowed", 403);
   const { segments } = await context.params;
   const key = segments.join("/");
   const target =
