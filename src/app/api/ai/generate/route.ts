@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireOwnerApi } from "@/lib/api-auth";
+import { checkAIGenerationRateLimit } from "@/lib/ai-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,23 @@ function resolveAIConfig() {
 export async function POST(request: Request) {
   const denied = requireOwnerApi(request);
   if (denied) return denied;
+
+  let rateLimit: Awaited<ReturnType<typeof checkAIGenerationRateLimit>>;
+  try {
+    rateLimit = await checkAIGenerationRateLimit(request);
+  } catch {
+    return NextResponse.json(
+      { error: "تعذر التحقق من حد استخدام الذكاء الاصطناعي. حاول لاحقاً." },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+  if (!rateLimit.success) {
+    const retryAfter = Math.max(1, Math.ceil((rateLimit.reset - Date.now()) / 1000));
+    return NextResponse.json(
+      { error: "تم بلوغ حد إنشاء المسودات مؤقتاً. حاول بعد انتهاء فترة الانتظار." },
+      { status: 429, headers: { "Retry-After": String(retryAfter), "Cache-Control": "no-store" } },
+    );
+  }
 
   let body: unknown;
   try { body = await request.json(); }
