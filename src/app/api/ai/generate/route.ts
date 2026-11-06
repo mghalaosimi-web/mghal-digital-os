@@ -6,6 +6,36 @@ import { checkAIGenerationRateLimit } from "@/lib/ai-rate-limit";
 export const runtime = "nodejs";
 
 const MAX_GENERATED_CONTENT_LENGTH = 20_000;
+const MAX_PROVIDER_RESPONSE_BYTES = 256 * 1024;
+
+async function readProviderJsonLimited(response: Response): Promise<unknown> {
+  const declaredLength = Number(response.headers.get("content-length") || 0);
+  if (declaredLength > MAX_PROVIDER_RESPONSE_BYTES) {
+    throw new Error("AI provider response exceeded the size limit.");
+  }
+  if (!response.body) throw new Error("AI provider returned an empty response.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_PROVIDER_RESPONSE_BYTES) {
+        await reader.cancel();
+        throw new Error("AI provider response exceeded the size limit.");
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+  return JSON.parse(text) as unknown;
+}
 
 const schema = z.object({
   title: z.string().trim().min(3).max(180),
@@ -102,8 +132,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "تعذر على مزود الذكاء الاصطناعي إكمال الطلب حالياً." }, { status: 502 });
     }
 
-    const result = await upstream.json() as { choices?: Array<{ message?: { content?: string | null } }> };
-    const rawContent = result.choices?.[0]?.message?.content;
+    let result: unknown;
+    try {
+      result = await readProviderJsonLimited(upstream);
+    } catch {
+      return NextResponse.json(
+        { error: "أعاد مزود الذكاء الاصطناعي استجابة غير صالحة أو أكبر من الحد المسموح." },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    const rawContent =
+      typeof result === "object" && result !== null &&
+      "choices" in result && Array.isArray(result.choices) &&
+      typeof result.choices[0] === "object" && result.choices[0] !== null &&
+      "message" in result.choices[0] && typeof result.choices[0].message === "object" &&
+      result.choices[0].message !== null && "content" in result.choices[0].message
+        ? result.choices[0].message.content
+        : undefined;
     if (typeof rawContent !== "string" || !rawContent.trim()) {
       return NextResponse.json({ error: "لم يرجع مزود الذكاء الاصطناعي نصاً صالحاً." }, { status: 502 });
     }
