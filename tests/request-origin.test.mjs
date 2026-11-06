@@ -9,6 +9,7 @@ test("accepts the public forwarded host behind Render's reverse proxy", () => {
       origin: "https://mghal-digital-os.onrender.com",
       host: "10.24.0.12:10000",
       "x-forwarded-host": "mghal-digital-os.onrender.com",
+      "x-forwarded-proto": "https",
     },
   });
 
@@ -62,4 +63,28 @@ test("rejects malformed origins and requests without a host", () => {
 
 test("allows requests without an Origin header", () => {
   assert.equal(isSameOrigin(new Request("https://app.example.com")), true);
+});
+
+
+test("rejects an origin with the correct host but a different protocol", () => {
+  const request = new Request("http://internal:10000/api/workspaces", {
+    headers: {
+      origin: "http://mghal-digital-os.onrender.com",
+      host: "internal:10000",
+      "x-forwarded-host": "mghal-digital-os.onrender.com",
+      "x-forwarded-proto": "https",
+    },
+  });
+  assert.equal(isSameOrigin(request), false);
+});
+
+test("uses the first forwarded protocol in a proxy chain", () => {
+  const request = new Request("http://internal:10000", {
+    headers: {
+      origin: "https://app.example.com",
+      "x-forwarded-host": "app.example.com, proxy.internal",
+      "x-forwarded-proto": "https, http",
+    },
+  });
+  assert.equal(isSameOrigin(request), true);
 });
