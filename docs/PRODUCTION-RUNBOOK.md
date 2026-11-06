@@ -44,6 +44,7 @@ A successful deployment alone is not proof that all integrations work. Check run
 - Authentication is currently a single-owner token gate, not multi-user identity or role-based access control.
 - UserSession and WorkspaceInvitation tables exist, but registration, session management, and invitation workflows are not implemented.
 - AI generation creates a draft only. It does not publish content.
+- Content-channel variants have API and UI code, but the `ContentVariant` table is not present in the current production database. Variant endpoints return HTTP 503 with `CONTENT_VARIANTS_MIGRATION_REQUIRED` until a reviewed production migration is completed. Do not work around this with `prisma db push` or ad-hoc production SQL.
 - Editorial scheduling stores dates and displays them in the calendar; it is not yet a background publishing worker.
 - Social publishing requires provider OAuth applications, approved scopes, and secure credentials.
 - Durable file storage, backups, restore drills, end-to-end tests, monitoring, and a worker/retry system remain launch requirements.
