@@ -1,10 +1,15 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { readOwnerSessionCookie, verifyOwnerSession } from "@/lib/owner-session";
+import { isSameOrigin } from "@/lib/request-origin";
 
 const MIN_TOKEN_LENGTH = 32;
 
 export function requireOwnerApi(request: Request): NextResponse | null {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Invalid request origin" }, { status: 403 });
+  }
+
   const configured = process.env.OWNER_API_TOKEN?.trim();
   if (!configured || configured.length < MIN_TOKEN_LENGTH) {
     return NextResponse.json(
