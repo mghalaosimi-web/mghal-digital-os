@@ -5,6 +5,8 @@ import { checkAIGenerationRateLimit } from "@/lib/ai-rate-limit";
 
 export const runtime = "nodejs";
 
+const MAX_GENERATED_CONTENT_LENGTH = 20_000;
+
 const schema = z.object({
   title: z.string().trim().min(3).max(180),
   channel: z.string().trim().max(80).optional(),
@@ -76,6 +78,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: config.model,
         temperature: 0.7,
+        max_tokens: 1800,
         messages: [
           {
             role: "system",
@@ -100,8 +103,14 @@ export async function POST(request: Request) {
     }
 
     const result = await upstream.json() as { choices?: Array<{ message?: { content?: string | null } }> };
-    const content = result.choices?.[0]?.message?.content?.trim();
-    if (!content) return NextResponse.json({ error: "لم يرجع مزود الذكاء الاصطناعي نصاً صالحاً." }, { status: 502 });
+    const rawContent = result.choices?.[0]?.message?.content;
+    if (typeof rawContent !== "string" || !rawContent.trim()) {
+      return NextResponse.json({ error: "لم يرجع مزود الذكاء الاصطناعي نصاً صالحاً." }, { status: 502 });
+    }
+    const content = rawContent.trim();
+    if (content.length > MAX_GENERATED_CONTENT_LENGTH) {
+      return NextResponse.json({ error: "تجاوزت استجابة مزود الذكاء الاصطناعي الحد المسموح لحجم المسودة." }, { status: 502 });
+    }
     return NextResponse.json({ data: { content } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
