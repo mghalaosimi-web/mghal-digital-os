@@ -49,7 +49,7 @@ test("AI route caps upstream response bytes before JSON parsing", () => {
 
 test("AI route caps incoming request bytes before parsing JSON", () => {
   assert.match(routeSource, /MAX_REQUEST_BODY_BYTES\s*=\s*32\s*\*\s*1024/);
-  assert.match(routeSource, /request\\.body\\.getReader\(\)/);
+  assert.match(routeSource, /request\.body\.getReader\(\)/);
   assert.match(routeSource, /totalBytes > MAX_REQUEST_BODY_BYTES/);
   assert.match(routeSource, /status: tooLarge \? 413 : 400/);
 });
