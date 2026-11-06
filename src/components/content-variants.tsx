@@ -112,6 +112,10 @@ export function ContentVariants({ contentItemId }: { contentItemId: string }) {
       await load();
       setNotice("تم تحديث حالة النسخة.");
     } catch (e) {
+      if (isVariantsSchemaUnavailable(e)) {
+        setSchemaUnavailable(true);
+        setItems([]);
+      }
       setError(e instanceof Error ? e.message : "تعذر تحديث النسخة");
     } finally { setBusy(false); }
   }
@@ -124,6 +128,10 @@ export function ContentVariants({ contentItemId }: { contentItemId: string }) {
       await load();
       setNotice("حذفت النسخة.");
     } catch (e) {
+      if (isVariantsSchemaUnavailable(e)) {
+        setSchemaUnavailable(true);
+        setItems([]);
+      }
       setError(e instanceof Error ? e.message : "تعذر حذف النسخة");
     } finally { setBusy(false); }
   }
