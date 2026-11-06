@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireOwnerApi } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { isContentVariantSchemaUnavailable } from "@/lib/content-variant-db";
 import {
   canTransitionVariantStatus,
   isManualVariantStatus,
@@ -96,9 +97,20 @@ export async function PATCH(request: Request, context: Context) {
       },
     });
     return { data: updated };
+  }).catch((error: unknown) => {
+    if (isContentVariantSchemaUnavailable(error)) return { error: "schema_unavailable" as const };
+    throw error;
   });
 
   if ("data" in result) return NextResponse.json({ data: result.data });
+  if (result.error === "schema_unavailable") return NextResponse.json(
+    { error: "ميزة نسخ القنوات غير مفعلة في قاعدة الإنتاج بعد. بيانات المحتوى الأساسية لم تتأثر.", code: "CONTENT_VARIANTS_MIGRATION_REQUIRED" },
+    { status: 503, headers: { "Cache-Control": "no-store" } },
+  );
+  if (result.error === "schema_unavailable") return NextResponse.json(
+    { error: "ميزة نسخ القنوات غير مفعلة في قاعدة الإنتاج بعد. بيانات المحتوى الأساسية لم تتأثر.", code: "CONTENT_VARIANTS_MIGRATION_REQUIRED" },
+    { status: 503, headers: { "Cache-Control": "no-store" } },
+  );
   if (result.error === "not_found") return NextResponse.json({ error: "Content variant not found" }, { status: 404 });
   if (result.error === "locked") return NextResponse.json({ error: "لا يمكن تعديل نسخة قيد النشر أو منشورة." }, { status: 409 });
   if (result.error === "system_status") return NextResponse.json({ error: "هذه الحالة لا يمكن تعيينها يدوياً." }, { status: 400 });
@@ -130,6 +142,9 @@ export async function DELETE(request: Request, context: Context) {
       },
     });
     return { success: true as const };
+  }).catch((error: unknown) => {
+    if (isContentVariantSchemaUnavailable(error)) return { error: "schema_unavailable" as const };
+    throw error;
   });
 
   if ("success" in result) return NextResponse.json({ success: true });

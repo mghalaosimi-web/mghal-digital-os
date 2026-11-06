@@ -59,3 +59,14 @@ test("only scheduled variants may have a scheduled date", () => {
 test("scheduled variants reject a date at the current instant", () => {
   assert.match(validateVariantSchedule("SCHEDULED", new Date(0)) ?? "", /المستقبل/);
 });
+
+
+test("missing ContentVariant production schema is identified without masking unrelated database errors", async () => {
+  const { isContentVariantSchemaUnavailable } = await import("../src/lib/content-variant-db.ts");
+  assert.equal(isContentVariantSchemaUnavailable({ code: "P2021", meta: { table: "public.ContentVariant" } }), true);
+  assert.equal(isContentVariantSchemaUnavailable({ code: "P2022", meta: { column: "ContentVariant.scheduledAt" } }), true);
+  assert.equal(isContentVariantSchemaUnavailable({ code: "P2010", meta: { code: "42P01", message: 'relation "ContentVariant" does not exist' } }), true);
+  assert.equal(isContentVariantSchemaUnavailable({ code: "P2021", meta: { table: "public.ContentItem" } }), false);
+  assert.equal(isContentVariantSchemaUnavailable({ code: "P2002" }), false);
+  assert.equal(isContentVariantSchemaUnavailable(new Error("database unavailable")), false);
+});
