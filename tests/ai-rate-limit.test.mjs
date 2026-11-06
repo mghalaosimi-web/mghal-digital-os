@@ -25,7 +25,7 @@ test("AI generation rate limiting fails closed in production without Redis", () 
 test("AI route checks the limiter before processing a generation request", () => {
   const authIndex = routeSource.indexOf("requireOwnerApi(request)");
   const limitIndex = routeSource.indexOf("checkAIGenerationRateLimit(request)");
-  const parseIndex = routeSource.indexOf("await request.json()");
+  const parseIndex = routeSource.indexOf("readRequestJsonLimited(request)");
   assert.ok(authIndex >= 0 && limitIndex > authIndex && parseIndex > limitIndex);
   assert.match(routeSource, /status:\s*429/);
   assert.match(routeSource, /"Retry-After"/);
@@ -45,4 +45,11 @@ test("AI route caps upstream response bytes before JSON parsing", () => {
   assert.match(routeSource, /totalBytes > MAX_PROVIDER_RESPONSE_BYTES/);
   assert.match(routeSource, /JSON\.parse\(text\)/);
   assert.match(routeSource, /readProviderJsonLimited\(upstream\)/);
+});
+
+test("AI route caps incoming request bytes before parsing JSON", () => {
+  assert.match(routeSource, /MAX_REQUEST_BODY_BYTES\\s*=\\s*32\\s*\\*\\s*1024/);
+  assert.match(routeSource, /request\\.body\\.getReader\\(\\)/);
+  assert.match(routeSource, /totalBytes > MAX_REQUEST_BODY_BYTES/);
+  assert.match(routeSource, /status: tooLarge \\? 413 : 400/);
 });
