@@ -7,6 +7,40 @@ export const runtime = "nodejs";
 
 const MAX_GENERATED_CONTENT_LENGTH = 20_000;
 const MAX_PROVIDER_RESPONSE_BYTES = 256 * 1024;
+const MAX_REQUEST_BODY_BYTES = 32 * 1024;
+
+async function readRequestJsonLimited(request: Request): Promise<unknown> {
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (declaredLength > MAX_REQUEST_BODY_BYTES) {
+    const error = new Error("Request body exceeded the size limit.");
+    error.name = "PayloadTooLargeError";
+    throw error;
+  }
+  if (!request.body) throw new Error("Request body is empty.");
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let totalBytes = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+        await reader.cancel();
+        const error = new Error("Request body exceeded the size limit.");
+        error.name = "PayloadTooLargeError";
+        throw error;
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+  } finally {
+    reader.releaseLock();
+  }
+  return JSON.parse(text) as unknown;
+}
 
 async function readProviderJsonLimited(response: Response): Promise<unknown> {
   const declaredLength = Number(response.headers.get("content-length") || 0);
@@ -84,8 +118,15 @@ export async function POST(request: Request) {
   }
 
   let body: unknown;
-  try { body = await request.json(); }
-  catch { return NextResponse.json({ error: "يجب إرسال JSON صالح." }, { status: 400 }); }
+  try {
+    body = await readRequestJsonLimited(request);
+  } catch (error) {
+    const tooLarge = error instanceof Error && error.name === "PayloadTooLargeError";
+    return NextResponse.json(
+      { error: tooLarge ? "حجم طلب إنشاء المسودة أكبر من الحد المسموح." : "يجب إرسال JSON صالح ضمن حجم الطلب المسموح." },
+      { status: tooLarge ? 413 : 400, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
